@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<flow name="newAndUpdateOrderFlow" doc:id="8494706c-3618-4059-91e1-d63ad720fa58" >
+		<logger level="INFO" doc:name="Logger" doc:id="97930609-3da5-4a52-a5a6-1eed923b6e4c" message="+++ Inside New and Update order Flow. Processing order items ++++" />
+		<foreach doc:name="For Each" doc:id="0fd586d3-4f85-42d7-8693-af71157f0462" collection="#[vars.orgCDPayload.order_items default []]" >
+			<try doc:name="Try" doc:id="c259916e-f35b-411b-95e2-0a07986db5b2" >
+				<logger level="INFO" doc:name="Logger" doc:id="37b39047-f8c4-419a-8add-6b79ea34d247" message="++++++  In For Each Try Block  ++++++ Value of Counter :: #[vars.counter]" />
+				<set-variable value='#[if (vars.orgCDPayload.external_status == "cancelled") ("cancelled") else (vars.orgCDPayload.external_status)]' doc:name="Item Status" doc:id="6431fe36-dee7-4f88-a809-9b9059644b29" variableName="item_status" />
+				<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;if (vars.counter == vars.present_item_count) ("Y") else ("N")]' doc:name="lastItemFlag" doc:id="af0728d8-950e-4486-a907-d7245bc312da" variableName="lastItemFlag" />
+				<logger level="INFO" doc:name="Logger" doc:id="adc18f5b-6c97-429f-88ff-f103829fc1a3" message="++ Value of updated status: #[vars.item_status] and value of last item flag is : #[vars.lastItemFlag] +++" />
+				<flow-ref doc:name="common order submission flow" doc:id="5fe4c307-9a57-49cf-9b06-8280e5f1629b" name="commonOrderSubmissionFlow" />
+				<choice doc:name="Choice" doc:id="2a541261-574a-4295-89c3-041ad4110252" >
+					<when expression='#[vars.orgCDPayload.external_status == "cancelled"]' >
+						<until-successful maxRetries="5" doc:name="Until Successful" doc:id="11720647-2470-4d5e-90f1-0436f8e69b6d" millisBetweenRetries="5000">
+							<os:remove doc:id="f0f1c9fd-846b-4461-b5ea-b2bb50eb0fc2" key='#[vars.orgCDPayload.external_id ++ "_" ++ vars.orgCDPayload.order_items[vars.counter - 1].order_line_number]' objectStore="${secure::object_store_name}" doc:name="Remove if external status is cancelled" />
+						</until-successful>
+					</when>
+					<otherwise >
+						<until-successful maxRetries="5" doc:name="Until Successful" doc:id="b647e874-0281-423f-968a-ddab76b7044a" millisBetweenRetries="5000">
+							<os:store doc:id="33305e72-a406-44e8-a6d8-ec55d21ea801" key='#[vars.orgCDPayload.external_id ++ "_" ++ vars.orgCDPayload.order_items[vars.counter - 1].order_line_number]' objectStore="${secure::object_store_name}" doc:name="Storing Order items">
+							<os:value><![CDATA[#[output application/json
+---
+vars.orgCDPayload.order_items[vars.counter - 1]]]]></os:value>
+						</os:store>
+						</until-successful>
+					</otherwise>
+				</choice>
+			</try>
+		</foreach>
+	</flow>
+</mule>

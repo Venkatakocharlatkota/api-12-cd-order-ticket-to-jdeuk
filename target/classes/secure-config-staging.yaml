@@ -1,0 +1,53 @@
+https.port : "9099"
+
+api5.host :  api-5-common-cd-order-ticket-stg-gateway.ir-e1.cloudhub.io
+request.path : orderPayload
+
+api5.truststore.path : keystore1/Holcim-Mule-stg-trustStore.ts
+api5.truststore.pwd : "![/WCulBpO8ZmzWthcn3+rqA==]"
+api5.muleuser : holcimmuleuser
+api5.mulepassword : "![iHA/KVhuzNa6uC+5hn3w9g==]"
+
+api5.client_id : "![20q+y/CwXG1NXb/9WWIfdMZ7mOgT6TiPdtJcQMJXo5BoS+qqbw3I54WOL96r+xNL]"
+
+jde.user: "SVC_MODUS"
+jde.password: "![nVpVZyZzUa9rat8zP/yAjg==]"
+jde.environment: "JPY900"
+jde.role: "*ALL"
+
+object_store_name : "Object_store"
+max_entries : "300000"
+entry_ttl : "21"
+expiration_interval : "21"
+
+orderBsfnName: "CDSalesOrderInbound"
+batchBsfnName: "CDInboundDespatchTrigger"
+podBsfnName: "CDPostDeliveryInboundInterface"
+
+mule.keystore.path: Keystore/api-6-Mule-dev-KeyStore.p12
+mule.keystore.alias: keystore-cd-nonprod
+mule.keystore.pwd: "![+l2ecg1OqkMvcehFHkl5zA==]"
+
+client_id: "![cFN+NwqnOZ1cimo/8eyQ9dpz8MfqSmZU+/zumuYTMwa1H3VM1j3lL19iDOb+xNyS]"
+
+//mulepassword: "![reyJAvUnzBD6Y7cLDiscsvVY7fAvbcKCaCuaoXYiQh2+ziiaW4cjhYwCx181Gl3a]"
+
+mulepassword: "![C5UcBERUjEpYUraSOwqaJ8jqph1hp7WEGc0UzjJpfTYOENELhaI/aksPNXE4BOHT]"
+
+cloudhub.username: "Concrete-Direct-CICD"
+cloudhub.pwd: "![ykQ0ojJY6RSAPZ2j9CJWqe0b3N6EZ0m3zkalD+jBLzY=]"
+cloudhub.env: "849fcdd2-e7ef-448e-a08d-a38f6ca13e75"
+cloudhub.domain: "api-12-stg-cd-order-ticket-to-jdeuk"
+
+# Queue shared by Sebastian for temporary use
+//SQSTestQueueARN: "arn:aws:sqs:eu-west-1:379218615267:cd-uk-stg-e1-ops-data-reprocessor"
+//SQSAccessKey: "AKIAVQSZQ3PRU6AKCO4L"
+//SQSSecretKey: "![z7rfUKjddSAXUXgzhDhd0pYykohawAjHfpwqzI6p5020AHv4THELq+mx+UeI+8Nh]"
+//SQSQueueURL: "https://sqs.eu-west-1.amazonaws.com/379218615267/cd-uk-stg-e1-ops-data-reprocessor"
+
+
+# UK orignal staging queue given by Mark.
+SQSTestQueueARN: "arn:aws:sqs:eu-west-2:218792631131:cd-uk-stg-e1-ops-data-reprocessor"
+SQSAccessKey:  "AKIATF4IOTNNZ3INBUM5" 
+SQSSecretKey: "![a16thOG860FxoIXNE6w1drWqDZ5C3zYmQUBGCkoa8Gax6qs+HyurA6la8IU9tmnI]"
+SQSQueueURL: "https://sqs.eu-west-2.amazonaws.com/218792631131/cd-uk-stg-e1-ops-data-reprocessor"

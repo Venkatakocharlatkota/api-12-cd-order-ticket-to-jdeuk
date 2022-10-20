@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:cloudhub="http://www.mulesoft.org/schema/mule/cloudhub" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:jde="http://www.mulesoft.org/schema/mule/jde"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/jde http://www.mulesoft.org/schema/mule/jde/current/mule-jde.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/cloudhub http://www.mulesoft.org/schema/mule/cloudhub/current/mule-cloudhub.xsd">
+	<flow name="PoDFlow" doc:id="8b599502-119f-4f99-8f9f-e030192337cf" >
+		<logger level="INFO" doc:name="Logger" doc:id="1e7753bf-b657-4fda-a001-e6912e758656" message="+++++ PoD Flow Started +++++" />
+		<choice doc:name="Choice" doc:id="9c6ed77b-2af5-42ee-84b8-fb80e1f061a0" >
+			<when expression="#[vars.orgCDPayload.is_retro_updated_by_mule == true]">
+				<logger level="INFO" doc:name="Logger" doc:id="af6851b8-7329-49ec-a02b-25732827a8f4" message="+++ In choice block where is_retro_updated_by_mule is true ++++"/>
+				<logger level="INFO" doc:name="Logger" doc:id="4c8f8d96-4e05-4442-a1c3-9eec75103ee5" message="++++ The value of field is_retro_updated_by_mule is : #[vars.orgCDPayload.is_retro_updated_by_mule] +++"/>
+				<logger level="INFO" doc:name="Logger" doc:id="025c9448-c467-49ba-8c6c-bb58866b73d9" message="++++ As is_retro field in ticket payload is updated by mule , this payload is not being sent to E1 for further processing +++"/>
+				<logger level="INFO" doc:name="Logger" doc:id="7b5bcc41-37d9-4cc7-87dd-33870fe45a12" message="+++ POD Flow ended +++"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="907a9c3e-5401-4957-8eff-2b088e5c1aba" message="+++ Inside Default choice block , processing payload to E1 +++"/>
+				<ee:transform doc:name="Transform Message" doc:id="40d14429-f0e8-4abf-83c3-8f2298fd1e56">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+import * from dw::Runtime
+output application/java
+
+fun onsite_fun() = if(isEmpty(vars.orgCDPayload.events.local_arrival_time)) fail("ERROR: Mandatory field: ' local arrival time' cannot be empty") else(vars.orgCDPayload.events.local_arrival_time as DateTime)
+
+//var local_updated_at_var = if(isEmpty(vars.orgCDPayload.e_signature.local_updated_at)) fail("ERROR: Mandatory field: 'local updated at time' cannot be empty") else(vars.orgCDPayload.e_signature.local_updated_at as DateTime)
+
+
+
+fun recalled_leave_site_fun() = 
+
+if ( (vars.orgCDPayload.is_retro == true) and (vars.orgCDPayload.events.local_pouring_start_time != null) )
+
+(vars.orgCDPayload.events.local_pouring_start_time)
+
+else if (vars.orgCDPayload.e_signature.local_updated_at != null) 
+
+(vars.orgCDPayload.e_signature.local_updated_at)
+
+else if (vars.orgCDPayload.events.local_arrival_time != null)
+
+(vars.orgCDPayload.events.local_arrival_time)
+
+else (vars.orgCDPayload.events.local_batch_start_time)
+
+
+
+fun recalled_onsite_fun() = 
+
+if (vars.orgCDPayload.events.local_arrival_time != null) (vars.orgCDPayload.events.local_arrival_time)
+
+else (vars.orgCDPayload.events.local_batch_start_time)
+
+
+fun leave_site_fun() = 
+
+if (vars.orgCDPayload.is_retro == true) 
+(
+if (isEmpty(vars.orgCDPayload.events.local_pouring_finish_time)) 
+fail ("ERROR: Mandatory field: 'local pouring finish  time' cannot be empty") 
+else (vars.orgCDPayload.events.local_pouring_finish_time)
+)
+
+else (
+ if (isEmpty(vars.orgCDPayload.e_signature.local_updated_at)) 
+ fail ("ERROR: Mandatory field: 'local updated at time' cannot be empty") 
+ else (vars.orgCDPayload.e_signature.local_updated_at)
+)
+
+
+---
+{
+
+mnCDSequenceNumber : if(isEmpty(vars.orgCDPayload.version)) fail("ERROR: Mandatory field: 'version' cannot be empty") else (vars.orgCDPayload.version) ,
+
+szAIConveyanceNoteNumber : if(isEmpty(vars.orgCDPayload.ticket_reference)) fail("ERROR: Mandatory field: 'ticket reference' cannot be empty") else (vars.orgCDPayload.ticket_reference) ,
+
+szCDUniqueIdentifierTicket : vars.orgCDPayload.external_id,
+
+mnDocumentOrderInvoiceE : if(isEmpty(vars.orgCDPayload.order_reference)) fail("ERROR: Mandatory field: 'order reference' cannot be empty") else (vars.orgCDPayload.order_reference) ,
+
+jdAIActualOnSiteDate : if (vars.orgCDPayload.status == "recalled") ( if (isEmpty(recalled_onsite_fun())) (null) else (recalled_onsite_fun() as DateTime as Date) ) else (onsite_fun() as Date) ,
+
+mnAIActualOnSiteTime : if (vars.orgCDPayload.status == "recalled") ( if (isEmpty(recalled_onsite_fun())) (null) else (recalled_onsite_fun() as DateTime as String {format: "HHmm"} ) ) else (onsite_fun() as String {format: "HHmm"}) ,
+
+//jdAIActualLeaveSiteDate :local_updated_at_var as Date  ,
+
+//mnAIActualLeaveSiteTime : local_updated_at_var as String {format: "HHmm"}  ,
+
+
+//Just a temporary change (made on 10 Aug 2022) in mapping made as told by Eli and Andy for go live. Once implemented by CD old one will be there with e_signature.local_updated_at
+
+jdAIActualLeaveSiteDate : if (vars.orgCDPayload.status == "recalled") ( if (isEmpty (recalled_leave_site_fun())) (null) else (recalled_leave_site_fun() as DateTime as Date) ) else (leave_site_fun() as DateTime as Date)  ,
+
+mnAIActualLeaveSiteTime :  if (vars.orgCDPayload.status == "recalled") ( if (isEmpty (recalled_leave_site_fun())) (null) else (recalled_leave_site_fun() as DateTime as String {format: "HHmm"} ) ) else (leave_site_fun() as DateTime as String {format: "HHmm"})  ,
+
+
+
+//mnWaterAddedValue : vars.orgCDPayload. ,
+
+mnReturnedMaterialValue : vars.orgCDPayload.returned_quantity ,
+
+cChargeCustReturnedLoad : if(vars.orgCDPayload.costs_incurred == "CHARGE_CUSTOMER") ("Y") else ("N") ,
+
+cPayHaulierReturnedLoad : if(vars.orgCDPayload.costs_incurred == "INTERNAL_CLEARING") ("Y") else ("N") ,
+
+cUnsocialHoursFlag : if (vars.orgCDPayload.additives.item_external_id contains "OUT_OF_HOURS_CHARGE") ("Y") else ("N") ,
+
+cChargeCustEarlyLoad : if (vars.orgCDPayload.additives.item_external_id contains "EARLY_LOAD_CHARGE") ("Y") else ("N"),
+
+cPayHaulierEarlyLoad : "N",
+
+cChargeCustLateLoad : if (vars.orgCDPayload.additives.item_external_id contains "LATE_LOAD_CHARGE") ("Y") else ("N") ,
+
+cPayHaulierLateLoad : "N" ,
+
+cHotWaterAdded : if (vars.orgCDPayload.additives.item_external_id contains "HOT_WATER_CHARGE") ("Y") else ("N") ,
+
+//mnActTravelMiles : vars.orgCDPayload. ,
+
+szLongitude : vars.orgCDPayload.e_signature.longitude ,
+
+szLatitude : vars.orgCDPayload.e_signature.latitude ,
+
+//cFreeTextCommentsFlag : vars.orgCDPayload. ,
+//szDescription01 : vars.orgCDPayload. ,
+
+
+
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables>
+			</ee:variables>
+		</ee:transform>
+				<logger level="INFO" doc:name="Logger" doc:id="498c1fa6-ed9f-4af8-8670-02f6094de277" message="+++ After Transformation of PoD CD payload in Java - #[payload] +++" />
+				<jde:call-bsfn bsfnName="${secure::podBsfnName}" doc:name="POD" doc:id="32820a2d-a270-4cca-a116-d20e12bf0b2f" config-ref="JDE_Config" target="JDEResponse">
+			<reconnect frequency="10000" count="5" />
+		</jde:call-bsfn>
+				<logger level="INFO" doc:name="Printing orignal JDE response from Bsfn" doc:id="c49875f4-96f7-464a-8e02-1b8cb867739b" message="+++ The response by BSFN for PoD is :: #[vars.JDEResponse] and type is : #[typeOf(vars.JDEResponse)] and mime type is : #[(vars.JDEResponse).^mimeType] and media type is :: #[(vars.JDEResponse).^mediaType] and error code is : #[vars.JDEResponse.szCDMsgResponseCode_56CDMRS] and error desc is : #[vars.JDEResponse.szCDMsgResponseDesc_56CDMRD] +++" />
+				<logger level="INFO" doc:name="Logger" doc:id="6beb4cf2-7242-4432-91e9-e474a778098c" message="+++The Post Delivery BSFN error code is : #[vars.JDEResponse.szCDMsgResponseCode_56CDMRS] and BSFN error desc is : #[vars.JDEResponse.szCDMsgResponseDesc_56CDMRD] +++"/>
+				<choice doc:name="Choice" doc:id="8283cc31-883f-4edf-9478-61cff7850edd">
+			<when expression='#[trim(vars.JDEResponse.szCDMsgResponseCode_56CDMRS) == ""]'>
+				<logger level="INFO" doc:name="Logger" doc:id="65027928-65dc-433c-a90b-cd2e49eba5f2" message="+++ Successfully posted Post Delivery to E1 +++" />
+			</when>
+			<when expression="#[vars.JDEResponse.szCDMsgResponseCode_56CDMRS == 'ONF']">
+				<logger level="INFO" doc:name="Logger" doc:id="c0f8fa58-2432-4bab-98a7-8ecfa12eba74" message="++++ Retrying as ONF (Order Not found) Error received +++" />
+				<raise-error doc:name="Raise error" doc:id="9b2dd9da-c977-4b45-b691-84bc23ed0b5b" type="CUSTOM:E1_ORDER_NOT_FOUND_ERROR" description="Order Not Found" />
+			</when>
+					<otherwise>
+				<logger level="INFO" doc:name="Logger" doc:id="d01ec4b4-e2f4-416b-8762-32aec110be9c" message="+++ Default Error Segment +++" />
+				<raise-error doc:name="Raise error" doc:id="49288a39-1aa2-460b-809f-a278ba7ba37a" type="CUSTOM:E1_ERROR" description="E1 has thrown error" />
+			</otherwise>
+		</choice>
+				<logger level="INFO" doc:name="Logger" doc:id="b252e42a-4337-44b4-9eb6-0b6502cba5c9" message="+++ POD Flow Ended +++" />
+			</otherwise>
+		</choice>
+	</flow>
+</mule>

@@ -1,0 +1,26 @@
+{
+  "minMuleVersion": "4.3.0",
+   "secureProperties": ["mule.key", "secure::orderBsfnName", "secure::batchBsfnName", "secure::podBsfnName"],
+   "classLoaderModelLoaderDescriptor": {
+"id": "mule",
+"attributes": {
+"exportedResources": [
+"JDV900/jdeinterop.ini",
+"JDV900/jdbj.ini",
+"JQA900/jdeinterop.ini",
+"JQA900/jdbj.ini",
+"JPY900/jdeinterop.ini",
+"JPY900/jdbj.ini",
+"JPD900/jdeinterop.ini",
+"JPD900/jdbj.ini",
+"jdelog.properties",
+"log4j2.xml",
+"jdelog.properties"
+],
+"exportedPackages": [
+"JDV900","JQA900", "JPY900", "JPD900"
+],
+"includeTestDependencies": "false"
+}
+}
+}

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:jde="http://www.mulesoft.org/schema/mule/jde" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/jde http://www.mulesoft.org/schema/mule/jde/current/mule-jde.xsd">
+	<flow name="orderFlow" doc:id="b220928a-a800-4566-900c-13383f0c8257" >
+		<logger level="INFO" doc:name="Logger" doc:id="42b5d9b3-1e50-4406-9b60-45a2e42738ec" message="+++++     Inside Order Flow     +++++" />
+		<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;"OrderData"]' doc:name="buisobj" doc:id="50698414-e0f6-4ac0-af13-f60c463789e7" variableName="buisobj"/>
+		<logger level="DEBUG" doc:name="Logger" doc:id="ecedd189-abdf-4556-bbdb-e43a24f1afcd" message="+++ Order Payload from CD - #[vars.orgCDPayload] +++" />
+		<logger level="INFO" doc:name="Logger" doc:id="b4cee9a2-55fb-45b5-bc2c-f708740d9ef1" message="+++ Identifiers: CD Order External ID - #[vars.orgCDPayload.external_id], Order Reference - #[vars.orgCDPayload.order_reference] , version/sequence number is :: #[vars.orgCDPayload.version] , order external status is :: #[vars.orgCDPayload.external_status] ; The value of fields added by Mulesoft are :: SQS Message Creation Time : #[vars.orgCDPayload.SQSMsgCreationTime] , Requestor Api : #[vars.orgCDPayload.requestorAPI] , Error Code : #[vars.orgCDPayload.ErrorCode]   +++" />
+		<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.orgCDPayload.order_items map ($.order_line_number)]" doc:name="current line items" doc:id="f365dd83-910e-4c94-93bb-969f668f7c31" variableName="current_line_items" />
+		<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;sizeOf(vars.current_line_items) default 0]" doc:name="present item count" doc:id="d46232c6-6250-4070-ba5d-cb307219ec1f" variableName="present_item_count" />
+		<set-variable value="#[(1 to vars.orgCDPayload.latest_order_line_number) map $ as Number]" doc:name="orignal line items" doc:id="c1db5b98-dbf5-4876-9a76-78b2b0eab603" variableName="orglineitems" />
+		<set-variable value="#[vars.orglineitems reduce (item, acc = []) -&gt; if (!(vars.current_line_items contains item)) acc + item else acc]" doc:name="cancelled line items" doc:id="53d743e7-e05e-44b4-a9c2-4e4d987a716d" variableName="canlineitems" />
+		<logger level="INFO" doc:name="Logger" doc:id="165c7617-aa85-4919-8360-42d02446d4d4" message="+++++ The present line numbers are : #[vars.current_line_items] ; present item count is : #[vars.present_item_count] ; orginal line items are - #[vars.orglineitems] and cancelled line items are - #[vars.canlineitems] and order status is :: #[vars.orgCDPayload.external_status] +++++"/>
+		<choice doc:name="Choice" doc:id="15ae6211-84d3-4bf3-8c32-91d3da327d62" >
+			<when expression="#[isEmpty(vars.current_line_items)]">
+				<logger level="INFO" doc:name="Logger" doc:id="effe6250-bfee-446a-a112-679ecfecadbc" message="+++ When present item count is empty +++" />
+				<flow-ref doc:name="Cancel All Items" doc:id="406c0a23-0afb-4ace-a315-197d7c080503" name="cancelAllItemsFlow"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="cac307f5-8c49-430d-8977-f3a7db926460" message="+++ When order items are present +++" />
+				<flow-ref doc:name="process cancel items" doc:id="61091e5a-54af-495e-8ea6-b2c74265e964" name="processCancelItems" />
+				<logger level="INFO" doc:name="Logger" doc:id="9d158d45-0fd7-4429-a4b5-3ba127910f3a" message="+++ All cancel Items are processed +++"/>
+				<flow-ref doc:name="new and update order " doc:id="fde592e8-d65f-42cb-98e3-7947ec9b8b3f" name="newAndUpdateOrderFlow"/>
+			</otherwise>
+		</choice>
+		<logger level="DEBUG" doc:name="Logger" doc:id="4d1eaea8-daf3-4520-ab9b-00fa1f0cc5d2" message="+++ In main order flow ; before success set payload :: payload is :: #[payload] +++"/>
+		<set-payload value='#[%dw 2.0&#10;output application/json&#10;&#10;---&#10;{&#10;	id: vars.orgCDPayload.external_id,&#10;	orderReference : vars.orgCDPayload.order_reference,&#10;	statusCode: "200",&#10;	statusType: "Success",&#10;	statusMessage: "Order has successfully posted to E1 for external id " ++ (vars.orgCDPayload.external_id default "") ++ " and order reference " ++ (vars.orgCDPayload.order_reference default "") ++ "."   &#10;}]' doc:name="Set Payload" doc:id="ed4043c9-11af-4561-8f8d-d15fb3a3258f" />
+		<logger level="INFO" doc:name="Logger" doc:id="780a7f4d-0590-4fd8-8bd1-63873a7f4d89" message="++++ Main Order Flow Ended ++++++"/>
+		
+	</flow>
+</mule>

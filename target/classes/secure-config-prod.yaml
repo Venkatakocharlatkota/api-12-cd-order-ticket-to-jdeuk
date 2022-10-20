@@ -1,0 +1,43 @@
+https.port : "9099"
+
+api5.host :  api-5-common-cd-order-ticket-gateway.ir-e1.cloudhub.io
+request.path : orderPayload
+
+api5.truststore.path : prod_keystore/Holcim-Mule-prd-trustStore.ts
+api5.truststore.pwd : "![Wqu2Uos08gljKJ5xuMtzbg==]"
+api5.muleuser : holcimmuleuser
+api5.mulepassword : "![42J8DLYgLKdGlsCAImHViWbcbS9s3i2xuAyJEl7Xs8TtBRn8vOAX/8ffyH+x+ADc]"
+
+api5.client_id : "![3L7Ugn5H544bXmEuRATIjWbsTYCfXAwOBMDXSrKGx/F67uLiTOqt35JqTewtAaPr]"
+
+jde.user: "SVC_MODUS"
+jde.password: "![skPBcmPeZnclVF2qifklJw==]"
+jde.environment: "JPD900"
+jde.role: "*ALL"
+
+object_store_name : "Object_store_prod"
+max_entries : "300000"
+entry_ttl : "21"
+expiration_interval : "21"
+
+orderBsfnName: "CDSalesOrderInbound"
+batchBsfnName: "CDInboundDespatchTrigger"
+podBsfnName: "CDPostDeliveryInboundInterface"
+
+mule.keystore.path: Keystore/api-6-Mule-prd-KeyStore.p12
+mule.keystore.alias: keystore-cd-prod
+mule.keystore.pwd: "![EDefy+Nq3ibEvTGUIc012Q==]"
+
+client_id: "![AWSkvM3I5s/gRaWJGWY7Cux1YueLLoiLuzTctKzBzqtFqmHfBWA78o0/2cuonyko]"
+
+mulepassword: "![Xk759E26Ngj45yc7b3Us9VcGDcLw2OX6IDs5PNpdIBDS71RitWUov+C3sOrK7BkP]"
+
+cloudhub.username: "Concrete-Direct-CICD"
+cloudhub.pwd: "![EK581WBxk6xF0hg0hM6P2X63E7NAMJv0ljrrFcyb52M=]"
+cloudhub.env: "ffa1b69e-751d-4818-b0f2-17116db4b6a5"
+cloudhub.domain: "api-12-cd-order-ticket-to-jdeuk"
+
+SQSTestQueueARN: "arn:aws:sqs:eu-west-2:218792631131:cd-uk-prod-e1-ops-data-reprocessor"
+SQSAccessKey: "AKIATF4IOTNNZ3INBUM5"
+SQSSecretKey: "![ux4f3dns7ltPDA+ezkbK+Nbc0WlOz+Ic51b/TcUn0NjLwnK4PjTRMBKcI+2Qe9Bq]"
+SQSQueueURL: "https://sqs.eu-west-2.amazonaws.com/218792631131/cd-uk-prod-e1-ops-data-reprocessor"

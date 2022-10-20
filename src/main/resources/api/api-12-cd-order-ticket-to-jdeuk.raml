@@ -1,0 +1,31 @@
+#%RAML 1.0
+title: api-12-cd-order-ticket-to-jdeuk
+description: api-12-cd-order-ticket-to-jdeuk
+
+version: 1.0.0
+protocols: [ HTTPS ]
+mediaType: [ application/json ]
+baseUri: /api
+
+traits:
+  headers-required:
+    headers:
+      client_id:
+        type: string
+
+
+/order:
+  post:
+    description: "Order"
+    body:
+      application/json:
+    responses:
+      200:
+
+/ticket:
+  post:
+    description: "Ticket"
+    body:
+      application/json:
+    responses:
+      200:        

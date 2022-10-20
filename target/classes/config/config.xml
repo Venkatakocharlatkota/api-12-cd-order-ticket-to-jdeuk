@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs"
+	xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+	xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:cloudhub="http://www.mulesoft.org/schema/mule/cloudhub" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:secure-properties="http://www.mulesoft.org/schema/mule/secure-properties" xmlns:spring="http://www.mulesoft.org/schema/mule/spring" xmlns:jde="http://www.mulesoft.org/schema/mule/jde" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/jde http://www.mulesoft.org/schema/mule/jde/current/mule-jde.xsd
+http://www.mulesoft.org/schema/mule/spring http://www.mulesoft.org/schema/mule/spring/current/mule-spring.xsd
+http://www.mulesoft.org/schema/mule/secure-properties http://www.mulesoft.org/schema/mule/secure-properties/current/mule-secure-properties.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/cloudhub http://www.mulesoft.org/schema/mule/cloudhub/current/mule-cloudhub.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<secure-properties:config name="Secure_Properties_Config" doc:name="Secure Properties Config" doc:id="64472fbc-5836-46ee-95c6-3d39e4a866a5" file="secure-config-${mule.env}.yaml" key="${mule.key}" />
+	<!-- <http:listener-config name="HTTP_Testing_Listener_config" doc:name="HTTP Listener config" doc:id="a440f695-0d56-42ef-b239-deeab3aceb07" >
+		<http:listener-connection host="0.0.0.0" port="${https.port}" />
+	</http:listener-config> -->
+	<global-property doc:name="Global Property" doc:id="6c84da7c-01d9-4f7a-b814-27afe8808d87" name="mule.env" value="dev" />
+	<global-property doc:name="Global Property" doc:id="831cda42-bf31-48a6-95d3-fcb87a0dfc01" name="mule.key" value="cYcev0x6yqzCByHtI8CtFYvsNxFiGvFV" />
+	<cloudhub:config name="CloudHub_Config" doc:name="CloudHub Config" doc:id="02d3635e-2e72-4afc-a7a7-8e86c07c61c4" >
+		<cloudhub:connection username="${secure::cloudhub.username}" password="${secure::cloudhub.pwd}" environment="${secure::cloudhub.env}" />
+	</cloudhub:config>
+	<http:listener-config name="api-12-cd-order-ticket-to-jdeuk-httpListenerConfig" doc:name="HTTP Listener config" doc:id="ff610d25-fdc3-4287-ab5f-1f8332d04ec6" >
+		<http:listener-connection host="0.0.0.0" port="${https.port}" protocol="HTTPS">
+			<tls:context >
+				<tls:key-store type="pkcs12" path="${secure::mule.keystore.path}" alias="${secure::mule.keystore.alias}" keyPassword="${secure::mule.keystore.pwd}" password="${secure::mule.keystore.pwd}" />
+			</tls:context>
+		</http:listener-connection>
+	</http:listener-config>
+	<apikit:config outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" doc:name="Router" doc:id="5b5426eb-2486-4355-afbb-5b5ac5222b43" name="api-12-cd-order-ticket-to-jdeuk-config" api="api-12-cd-order-ticket-to-jdeuk.raml" />
+	<configuration-properties doc:name="Configuration properties" doc:id="d8ecc4c6-1557-49e3-a031-3603160d0ce2" file="common-config.yaml" />
+	<jde:config name="JDE_Config" doc:name="JDE Config" doc:id="1132cc1b-de57-48e3-9202-b0d6216007e2" >
+		<jde:connection user="${secure::jde.user}" password="${secure::jde.password}" environment="${secure::jde.environment}" role="${secure::jde.role}" />
+	</jde:config>
+	<spring:config name="Spring_Config" doc:name="Spring Config" doc:id="53e3deb8-54a2-4c41-b193-1b7774291d89" files="beans.xml" />
+	<spring:security-manager doc:name="Spring Security manager" doc:id="eeabbdaf-956a-478e-8aa6-42572a64e664" >
+		<spring:delegate-security-provider name="security-provider" delegate-ref="authenticationManager" />
+	</spring:security-manager>
+	<os:object-store name="${secure::object_store_name}" doc:name="Object store" doc:id="b84de3ab-d787-4f90-b83c-c9321b8f18b7" maxEntries="${secure::max_entries}" entryTtl="${secure::entry_ttl}" entryTtlUnit="DAYS" expirationInterval="${secure::expiration_interval}" expirationIntervalUnit="DAYS" />
+	<sqs:config name="Amazon_SQS_Configuration" doc:name="Amazon SQS Configuration" doc:id="2f16ff2a-89e9-40b9-99d4-d71f405e1b90" >
+		<sqs:basic-connection testQueueArn="${secure::SQSTestQueueARN}" accessKey="${secure::SQSAccessKey}" secretKey="${secure::SQSSecretKey}" region="eu-west-2" />
+	</sqs:config>
+	<http:request-config name="HTTP_Request_configuration" doc:name="HTTP Request configuration" doc:id="366f10dd-0545-4319-b46a-74dbc747eb9e">
+		<http:request-connection protocol="HTTPS" host="${secure::api5.host}">
+			<tls:context>
+				<tls:trust-store path="${secure::api5.truststore.path}" password="${secure::api5.truststore.pwd}" type="jks" insecure="true" />
+			</tls:context>
+			<http:authentication>
+				<http:basic-authentication username="${secure::api5.muleuser}" password="${secure::api5.mulepassword}" />
+			</http:authentication>
+		</http:request-connection>
+	</http:request-config>
+</mule>

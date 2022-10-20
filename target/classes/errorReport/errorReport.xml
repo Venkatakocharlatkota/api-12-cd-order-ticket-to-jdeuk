@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:cloudhub="http://www.mulesoft.org/schema/mule/cloudhub"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/cloudhub http://www.mulesoft.org/schema/mule/cloudhub/current/mule-cloudhub.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<flow name="errorReportFlow" doc:id="2c4deb90-f21a-4da9-9f83-def566352297" >
+		<logger level="INFO" doc:name="Logger" doc:id="a3f11597-6b2e-4a5d-9c77-c57668ccba17" message="+++ Inside Error Report Flow. Reporting Error to CD via api-5. +++"/>
+		<set-variable value='#[%dw 2.0&#10;output application/json&#10;---&#10;(now() &gt;&gt; "UTC") as Number]' doc:name="message identifier" doc:id="aa93ded6-a698-4b46-83e3-08123be6f5aa" variableName="messageIdentifier"/>
+		<ee:transform doc:name="Transform Message" doc:id="6b2415f7-d677-44b5-baf5-eb284c649e5e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+import * from dw::Runtime
+import * from dw::core::Strings
+output application/json
+
+
+
+var external_id_var = if (vars.buisobj == "OrderData") (vars.orgCDPayload.external_id ) else (vars.orgCDPayload.order_external_id )
+---
+{
+	latest_message_identifier : vars.messageIdentifier,
+    referenced_message_id : vars.orgCDPayload.version as String,
+    external_id: if(isEmpty(external_id_var)) fail("ERROR: Mandatory field: 'external id ' cannot be empty as it is mandatory for error reporting to CD") else(external_id_var) ,
+    errors : [
+                {
+                   code : if (isEmpty(vars.JDEResponse.szCDMsgResponseCode_56CDMRS)) (vars.errorCode default "UNKNOWN_ERROR") else (vars.JDEResponse.szCDMsgResponseCode_56CDMRS default "UNKNOWN_ERROR"),
+                   detail: "The validation of order failed due to " ++ ( if (isEmpty(vars.JDEResponse.szCDMsgResponseDesc_56CDMRD)) (vars.errors default " error.")  else (vars.JDEResponse.szCDMsgResponseDesc_56CDMRD default " error.") )
+                   
+                }
+  ]
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="eae5aede-9056-4d0c-a893-c3cd976b5007" message="+++ The error report payload for Buisness Object : #[vars.buisobj] being sent to CD : #[payload] +++"/>
+		<try doc:name="Try" doc:id="e0206c6a-3a02-417b-8629-314d8d2af78e">
+			<logger level="INFO" doc:name="Logger" doc:id="c38c43fe-7a0e-4c8d-8668-476055e427d0" message="+++ Inside request with  retry block+++" />
+			<until-successful maxRetries="5" doc:name="Until Successful" doc:id="b6e04257-7c97-4099-b252-33ab49eff20b" millisBetweenRetries="10000">
+				<try doc:name="Try" doc:id="b9d84f5d-04bd-4aae-8ee5-7a6f234b6c3e">
+					<http:request method="PUT" doc:name="Api 5 Error Report" doc:id="f557bc55-1ebf-4006-9ce8-e6d4b9fef5f8" config-ref="HTTP_Request_configuration" path="/${secure::request.path}">
+						<http:headers><![CDATA[#[output application/java
+---
+{
+	"sourceSys" : Mule::p('sourceSystem'),
+	"systemIdentifier" : Mule::p('systemIdentifier'),
+	"BuisnessObject" : "ErrorReport",
+	"messageIdentifier" : vars.messageIdentifier,
+	"client_id" : Mule::p('secure::api5.client_id')
+}]]]></http:headers>
+					</http:request>
+					<logger level="INFO" doc:name="Logger" doc:id="3ed573ed-bc6c-4463-b0c2-6a314681effb" message="++++ The response from Api-5 (Error Report Endpoint) is : #[payload] ++++" />
+					<remove-variable doc:name="error object" doc:id="4f53872a-7fa9-4766-a38d-1d88a0d439c7" variableName="error_object" />
+					<error-handler>
+						<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="ce725746-97a6-4ceb-8be2-09960a25d0bc" when='#[(error.errorType.identifier != "CONNECTIVITY") and (error.errorType.identifier != "TIMEOUT")] '>
+							<logger level="INFO" doc:name="Logger" doc:id="04d420f8-a6ad-416c-9042-f654f6ca8e5b" message="+++ Not retrying since not a CONNECTIVITY or GATEWAY TIMEOUT failure with error #[error.description] and #[error.errorType] and error mule message typed value status message : #[error.muleMessage.typedValue.statusMessage] +++" />
+							<set-variable value="#[%dw 2.0&#10;output application/java&#10;---&#10;error]" doc:name="error object" doc:id="a66a5545-2e3c-4730-bed7-3717a3e36ebc" variableName="error_object" />
+							<set-variable value="#[error.muleMessage.typedValue]" doc:name="Set Variable" doc:id="72f01b89-d0ca-46ab-9c4a-25faf91482d1" variableName="error" />
+							<logger level="INFO" doc:name="Logger" doc:id="05a2665a-b45c-48da-aabe-f3eb6e41ec33" message="#[vars.error]" />
+						</on-error-continue>
+					</error-handler>
+				</try>
+			</until-successful>
+			<validation:is-true doc:name="Check for errors other than connectivity or gateway timeout errors" doc:id="b304ed81-816d-4fd7-abe6-0fe308f52202" expression="#[vars.error_object == null]" message="#[vars.error_object.detailedDescription]" />
+			<logger level="INFO" doc:name="Logger" doc:id="4d60fb59-cb62-44e4-a18e-e512b9f99941" message="+++ Request Sent +++" />
+			<error-handler>
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="38a0c7eb-7d5d-4b95-bc3e-8ac676e5ab0a">
+					<logger level="INFO" doc:name="Logger" doc:id="6e4b8881-5274-488f-84cc-637c64277c44" message="+++ On Error Propagate for other errors +++error description ::  #[error.description] and error type :: #[error.errorType] and error mule message typed value status message : #[error.muleMessage.typedValue.statusMessage] +++" />
+					<logger level="INFO" doc:name="Logger" doc:id="317d2946-4655-4c33-bd01-9e7b1a74f0fa" message="#[vars.error]" />
+					<set-payload value='#[%dw 2.0&#10;output application/java&#10;---&#10;"Mule API Technical Error " ++ ": " ++ (error.description default " Mulesoft is unable to report the error endpoint of Concrete Direct as unexpected error occurred in API-5 (error report endpoint API) ") ++ " for " ++ (vars.buisobj default "") ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "")]' doc:name="cloudhub payload" doc:id="35b61acd-2083-4243-a527-b5a5fd557bd3" />
+					<cloudhub:create-notification domain="${secure::cloudhub.domain}" doc:name="Create Notification" doc:id="3d722702-db7a-4f7c-b811-793922dc62f3" config-ref="CloudHub_Config" priority="ERROR" />
+					<logger level="INFO" doc:name="Logger" doc:id="f0f6154a-779d-4ed3-9421-4206355b05d0" message="+++ Email Sent +++ Cloudhub payload : #[payload] +++" />
+					<set-payload value='#[%dw 2.0&#10;import * from dw::core::Strings&#10;&#10;output application/json&#10;&#10;---&#10;&#10;{   "id": vars.orgCDPayload.external_id,&#10;	&#10;	"orderReference" : vars.orgCDPayload.order_reference,&#10;&#10;	"statusCode": "400",&#10;&#10;	"statusType": "Error",&#10;&#10;	"statusMessage": (error.description default " Mulesoft is unable to report the error endpoint of Concrete Direct as unexpected error occurred in API-5 (error report endpoint API) ") ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "") }]' doc:name="CD Response Payload" doc:id="a619cae1-77c7-4341-83d5-52f8320bf0fd" />
+					<logger level="INFO" doc:name="Logger" doc:id="d89375a1-393c-40bb-ae20-51b0f48c369d" message="+++ The response to CD is :: #[payload] +++" />
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		<logger level="INFO" doc:name="Logger" doc:id="9159f99c-6b31-434d-8348-a31b18e19b69" message="+++ Error Report Flow Ended +++"/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="73723d3a-c904-4066-bd98-5d96a61ec5fa" type="EXPRESSION">
+				<logger level="INFO" doc:name="Logger" doc:id="7e1a1be7-5722-4bc6-a6d7-bd92603ebfb7" message="++++ Inside Error Propagate Segment - Expression Issue of Error Report to CD Flow   ++++"/>
+				<set-payload value="#[%dw 2.0&#10;output application/java&#10;---&#10;&quot;Business Validation  &quot; ++ &quot;Error : Mulesoft is unable to report the error endpoint of Concrete Direct as possibly mandatory field 'external id' of order is not present in payload&quot; ++ &quot; for &quot; ++ (vars.buisobj default &quot;&quot;) ++ &quot;.&quot; ++ &quot; Reference : Order Number : &quot; ++ (vars.orgCDPayload.order_reference default &quot;&quot;) ++ &quot; Ticket number : &quot; ++ (vars.orgCDPayload.ticket_reference default &quot;&quot;)]" doc:name="cloudhub payload" doc:id="2de609e3-79ad-4d80-bcf7-768930fd7949" />
+				<cloudhub:create-notification domain="${secure::cloudhub.domain}" doc:name="Create Notification" doc:id="973d0cb6-edd3-417d-b1c4-cd4eed3e59e7" config-ref="CloudHub_Config" priority="ERROR" />
+				<logger level="INFO" doc:name="Logger" doc:id="cebef290-4ea0-4260-97ee-8cfead892363" message="+++ Email Sent +++Cloudhub payload : #[payload] +++"/>
+				<set-payload value="#[%dw 2.0&#10;&#10;import * from dw::core::Strings&#10;&#10;output application/json&#10;&#10;---&#10;&#10;{   &quot;id&quot;: vars.orgCDPayload.external_id,&#10;	&#10;	&quot;orderReference&quot; : vars.orgCDPayload.order_reference,&#10;&#10;	&quot;statusCode&quot;: &quot;422&quot;,&#10;&#10;	&quot;statusType&quot;: &quot;Error&quot;,&#10;&#10;	//&quot;statusMessage&quot;: substring(error.description, 44, 130)&#10;	&#10;	&quot;statusMessage&quot;: &quot;Mulesoft is unable to report the error endpoint of Concrete Direct as possibly mandatory field 'external id' of order is not present in payload&quot; ++ &quot; for external id &quot; ++ (vars.orgCDPayload.external_id default &quot;&quot;) ++ &quot;.&quot; ++ &quot; Reference : Order Number : &quot; ++ (vars.orgCDPayload.order_reference default &quot;&quot;) ++ &quot; Ticket number : &quot; ++ (vars.orgCDPayload.ticket_reference default &quot;&quot;)&#10;	 }]" doc:name="CD Response Payload" doc:id="27374d58-e7df-43c0-9e27-5c5dee9142e9" />
+				<logger level="INFO" doc:name="Logger" doc:id="1a5314a0-4654-49c1-9286-ad37ce5ac992" message="+++++  The response to CD is: #[payload]  +++++" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>

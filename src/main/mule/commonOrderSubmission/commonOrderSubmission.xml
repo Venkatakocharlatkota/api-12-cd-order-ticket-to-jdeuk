@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:jde="http://www.mulesoft.org/schema/mule/jde"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/jde http://www.mulesoft.org/schema/mule/jde/current/mule-jde.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<flow name="commonOrderSubmissionFlow" doc:id="5682276a-2b25-4b43-b58a-c874c6bfe185" >
+		<ee:transform doc:name="CD to UK Order" doc:id="ace2a37b-3217-40d4-91f3-e83b77c732ed">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+import * from dw::Runtime
+import * from dw::core::Strings
+output application/java
+
+var dateTime_var = if(isEmpty(payload.local_start_datetime)) fail("ERROR: Mandatory field: 'order item local start date time' cannot be empty") else(payload.local_start_datetime as DateTime)
+
+var payment_method_var = vars.orgCDPayload.payment_method
+
+---
+{
+   "_BSFNThrowExceptionWithErrorsYN": 'Y',
+   cLastItemFlagYN_EV01: vars.lastItemFlag,
+   szCDUniqIdHeader_56CDUIDH: if(isEmpty(vars.orgCDPayload.external_id)) fail("ERROR: Mandatory field: 'order id' cannot be empty") else (vars.orgCDPayload.external_id),
+   mnCDSequenceNumber_56CDSN : if(isEmpty(vars.orgCDPayload.version)) fail("ERROR: Mandatory field: 'version' cannot be empty") else (vars.orgCDPayload.version) ,
+   mnConcreteDirectOrderNo_DOCO : if(isEmpty(vars.orgCDPayload.order_reference)) fail("ERROR: Mandatory field: 'order reference' cannot be empty") else (vars.orgCDPayload.order_reference) ,
+   szContractNumber_OORN : if(isEmpty(vars.orgCDPayload.site_external_id)) fail("ERROR: Mandatory field: 'site external id' cannot be empty") else (vars.orgCDPayload.site_external_id) ,
+   szLatitude_LATT : if(isEmpty(vars.orgCDPayload.location.latitude)) fail("ERROR: Mandatory field: 'latitude' cannot be empty") else (vars.orgCDPayload.location.latitude),
+   szLongitude_LONG : if(isEmpty(vars.orgCDPayload.location.longitude)) fail("ERROR: Mandatory field: 'longitude' cannot be empty") else (vars.orgCDPayload.location.longitude) ,
+   szMailingName_MLNM : if(isEmpty(vars.orgCDPayload.contract_address.line1)) fail("ERROR: Mandatory field: 'contract address line 1' cannot be empty") else (vars.orgCDPayload.contract_address.line1 replace  /[,]/ with ";" replace ' and ' with " & " replace ' AND ' with " & "),
+   szAddressLine1_ADD1 :  vars.orgCDPayload.jobsite_description replace  /[,]/ with ";" replace ' and ' with " & " replace ' AND ' with " & " ,
+   szAddressLine2_ADD2 : vars.orgCDPayload.contract_address.line1 replace  /[,]/ with ";" replace ' and ' with " & " replace ' AND ' with " & " ,
+   szAddressLine3_ADD3 : vars.orgCDPayload.contract_address.line2 replace  /[,]/ with ";" replace ' and ' with " & " replace ' AND ' with " & ",
+   szAddressLine4_ADD4 : vars.orgCDPayload.contract_address.zipcode,
+   szPostcode_ADD4: vars.orgCDPayload.contract_address.zipcode,
+   szCity_CTY1 : if(isEmpty(vars.orgCDPayload.contract_address.city)) fail("ERROR: Mandatory field: 'contract address city' cannot be empty") else (vars.orgCDPayload.contract_address.city) ,
+   szCounty_COUN : if(isEmpty(vars.orgCDPayload.contract_address.county)) fail("ERROR: Mandatory field: 'contract address county' cannot be empty") else (vars.orgCDPayload.contract_address.county) ,
+   szCustomerPONumber_VR01 : if(isEmpty(vars.orgCDPayload.accounting_reference)) fail("ERROR: Mandatory field: 'accounting reference' cannot be empty") else (vars.orgCDPayload.accounting_reference)  ,
+   szOrderedByName_59PPOR : vars.orgCDPayload.order_by_name,
+   szOrderedByPhone_58CPH1 : vars.orgCDPayload.order_by_phone,
+   szOrderCreatedBy_56CDCB : vars.orgCDPayload.user_reference,
+   szCDOrderStatus_56CDOS : if(isEmpty(vars.item_status)) fail("ERROR: Mandatory field: 'external status' cannot be empty") else (vars.item_status) ,
+   cMinimixFlag_56CDMMF:  if(vars.orgCDPayload.is_minimix == true) ("Y") else ("N"),
+   szCashSalePymtMethod_56CDCPM: if ((p('payment_method') splitBy(",") contains(payment_method_var))) (p(payment_method_var) as Number) else (null),
+   
+   
+ 
+
+//In for Each loop only below fields will be updated.
+   szCDUniqIdDetail_56CDUIDD: if(isEmpty(payload.external_id)) fail("ERROR: Mandatory field: 'order item id' cannot be empty") else (payload.external_id),
+   mnContractLineNumber_59OGNO: if(isEmpty(payload.contract_line_number)) fail("ERROR: Mandatory field: 'contract line number' cannot be empty") else (payload.contract_line_number),
+   mnOrderLineNumber_LNID : if(isEmpty(payload.order_line_number)) fail("ERROR: Mandatory field: 'order line number' cannot be empty") else (payload.order_line_number),
+   szItemDescription_59NMIX :payload.description,
+   mnQuantity_UORG : if(isEmpty(payload.quantity)) fail("ERROR: Mandatory field: 'order item quantity' cannot be empty") else (payload.quantity)  ,
+   szExactQuantity_56CDEQT : if(isEmpty(payload.is_exact_quantity)) fail("ERROR: Mandatory field: 'order item is exact quantity' cannot be empty") else (payload.is_exact_quantity) , 
+   jdRequestDate_DRQJ : dateTime_var as Date,
+   mnRequestTime_59STTM : dateTime_var as String {format: "HHmm"},
+   szRateType_56CDRT : if(isEmpty(payload.rate_type)) fail("ERROR: Mandatory field: 'order item rate type' cannot be empty") else (payload.rate_type) ,
+   mnMinsApart_59MINP : if (payload.rate_type == "SPACING_IN_MINUTES") (if (isEmpty(payload.spacing_in_minutes)) fail ("ERROR: Mandatory field: 'order item spacing in minutes' cannot be empty") else (payload.spacing_in_minutes)) else (null) ,
+   mnQtyPerHour_59TPHR : if (payload.rate_type == "QTY_PER_HOUR") (if (isEmpty(payload.qty_per_hour)) fail ("ERROR: Mandatory field: 'order item quantity per hour' cannot be empty") else (payload.qty_per_hour)) else (null) ,  
+   szWorks_RP10 : if(isEmpty(payload.plant_external_id)) fail("ERROR: Mandatory field: 'order item plant external id' cannot be empty") else (payload.plant_external_id) ,
+   mnTravelMiles_56CDTM : payload.jobsite_distance_in_meters,
+   mnTravelTime_56CDTT : payload.travel_time_in_minutes,
+   mnHoldQuantity_OPQT : payload.hold_qty
+   
+   
+   
+
+        
+}
+]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="10116917-2ecf-4972-9f08-53559c3b6d3e" message="+++ Transformed Order Payload from CD in Java - #[payload] +++" />
+		<jde:call-bsfn bsfnName="${secure::orderBsfnName}" doc:name="Call bsfn" doc:id="4e59842b-3a3e-4c26-b57b-130597f6a968" config-ref="JDE_Config" target="JDEResponse">
+			<reconnect frequency="10000" count="5" />
+		</jde:call-bsfn>
+		<logger level="INFO" doc:name="Logger" doc:id="7dfc138a-4bb0-401e-9103-4f6ebf25f523" message="+++ The response by BSFN for order is :: #[vars.JDEResponse] and type is : #[typeOf(vars.JDEResponse)] and mime type is : #[(vars.JDEResponse).^mimeType] and media type is :: #[(vars.JDEResponse).^mediaType]  and error code is : #[vars.JDEResponse.szCDMsgResponseCode_56CDMRS] and error desc is : #[vars.JDEResponse.szCDMsgResponseDesc_56CDMRD]++++" />
+		<logger level="INFO" doc:name="Logger" doc:id="604adf4a-f701-4e11-91d6-1fb1fbc748b3" message="+++The Order BSFN error code is : #[vars.JDEResponse.szCDMsgResponseCode_56CDMRS] and BSFN error desc is : #[vars.JDEResponse.szCDMsgResponseDesc_56CDMRD] +++"/>
+		<choice doc:name="Choice" doc:id="0a0071b7-447a-4a43-9f0d-7beda62bf221">
+						<when expression='#[trim(vars.JDEResponse.szCDMsgResponseCode_56CDMRS) == ""]'>
+							<logger level="INFO" doc:name="Logger" doc:id="fcb8b424-499a-4035-91d3-be956f6e5338" message="+++ Successfully posted order to E1 +++" />
+						</when>
+						<when expression="#[vars.JDEResponse.szCDMsgResponseCode_56CDMRS == 'RES']">
+							<logger level="INFO" doc:name="Logger" doc:id="34e9e966-3d76-4a91-a58f-a26f711d00d0" message="+++ Retrying as RES error received from E1 +++" />
+							<raise-error doc:name="Raise error" doc:id="97efdfa9-9107-4dc1-a3a3-88f182c701e3" type="CUSTOM:E1_RESERVATION_ERROR" description="Previous Order is still being proccessed" />
+						</when>
+						<otherwise>
+							<logger level="INFO" doc:name="Logger" doc:id="329c0610-5294-4898-8d1a-41af09df44bf" message="+++ Non RES Error Segment +++" />
+							<raise-error doc:name="Raise error" doc:id="843d8d88-8f20-45ed-9b3e-46ff7624e2e4" type="CUSTOM:E1_ERROR" description="E1 has thrown error" />
+						</otherwise>
+					</choice>
+		
+	
+</flow>
+</mule>

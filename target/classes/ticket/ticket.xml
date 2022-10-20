@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:jde="http://www.mulesoft.org/schema/mule/jde" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/jde http://www.mulesoft.org/schema/mule/jde/current/mule-jde.xsd">
+	<flow name="ticketFlow" doc:id="a92eec4b-fbe3-4276-842e-295f10dd5f02" >
+		<logger level="INFO" doc:name="Logger" doc:id="ee025b9e-03bb-45d8-b475-e3ed315760c4" message="+++++     Inside Ticket Flow     +++++" />
+		<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;"TicketData"]' doc:name="buisobj" doc:id="96af78fd-0408-4f90-8526-b401fab9d3f7" variableName="buisobj"/>
+		<logger level="DEBUG" doc:name="Logger" doc:id="34a6858c-775c-4eaa-a334-c00a2d2962ab" message="+++ Ticket Payload from CD - #[vars.orgCDPayload] +++" />
+		<logger level="INFO" doc:name="Logger" doc:id="5b7ca645-ff35-4542-a478-1feb40bbe971" message="+++ Ticket Reference : #[vars.orgCDPayload.ticket_reference] , External Id of ticket :  #[vars.orgCDPayload.external_id] , Order Reference : #[vars.orgCDPayload.order_reference] , Ticket Status : #[vars.orgCDPayload.status] , is_retro : #[vars.orgCDPayload.is_retro] , is_update : #[vars.orgCDPayload.is_update] , version / sequence number is : #[vars.orgCDPayload.version] ; The value of fields added by Mulesoft are :: SQS Message Creation Time : #[vars.orgCDPayload.SQSMsgCreationTime] , Requestor Api : #[vars.orgCDPayload.requestorAPI] , Error Code : #[vars.orgCDPayload.ErrorCode]  , is_retro updated by mule : #[vars.orgCDPayload.is_retro_updated_by_mule]  +++"/>
+		<choice doc:name="Choice" doc:id="f208bfeb-95bb-4038-88d0-56d9f58f6d5a" >
+			<when expression="#[(vars.orgCDPayload.is_retro == false) and (vars.orgCDPayload.is_update == false)]" >
+				<logger level="INFO" doc:name="Logger" doc:id="211e39a8-16f6-4f0c-8b70-ecddfa40f7ac" message="+++As is_retro: false and is_update: false :: Calling Batch Trigger Flow+++" />
+				<flow-ref doc:name="Batch Trigger" doc:id="6c92f09c-2e24-4acc-96a8-0d721b07f123" name="batchTriggerFlow" />
+			</when>
+			<when expression="#[(vars.orgCDPayload.is_retro == false) and (vars.orgCDPayload.is_update == true)]" >
+				<logger level="INFO" doc:name="Logger" doc:id="a74f8700-633d-438a-8502-41046478dd13" message="+++ As is_retro: false and is_update: true :: Calling Pod Flow +++"/>
+				<flow-ref doc:name="PoD " doc:id="28b25cf8-2221-4e4b-bcf5-2a74caee3ecf" name="PoDFlow"/>
+			</when>
+			<when expression="#[(vars.orgCDPayload.is_retro == true) and (vars.orgCDPayload.is_update == false)]">
+				<logger level="INFO" doc:name="Logger" doc:id="b6a8fb2f-e355-4c98-8b02-ff20dcc19947" message="+++ As is_retro: true and is_update: false :: Calling Batch Trigger and then POD Flow  +++" />
+				<flow-ref doc:name="Batch Trigger" doc:id="244de66e-4071-4690-b3af-f0a4a05cc33c" name="batchTriggerFlow" />
+				<flow-ref doc:name="POD" doc:id="9f010fc7-7ea9-459f-bc5f-efd2df7566f3" name="PoDFlow" />
+			</when>
+			<when expression="#[(vars.orgCDPayload.is_retro == true) and (vars.orgCDPayload.is_update == true)]">
+				<logger level="INFO" doc:name="Logger" doc:id="5ae364d9-be3f-4b5a-af5a-6e985f6e0ce9" message="+++ As is_retro: true and is_update: true ::  Calling POD Flow +++" />
+				<flow-ref doc:name="POD" doc:id="93edf763-4cf6-4c3c-8eb4-7a3bda2b1fd8" name="PoDFlow" />
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="136ba3f0-a9ff-4929-8ee6-49a3012a72ed" message="+++ In default block for ticket payload choice . +++" />
+				<raise-error doc:name="Raise error" doc:id="264d91e0-17b4-461e-b1b4-1db7adeee844" type="CUSTOM:E1_ERROR" description="Either value of 'is_retro' or 'is_update' field is invalid or is empty"/>
+			</otherwise>
+		</choice>
+		<set-payload value='#[%dw 2.0&#10;output application/json&#10;&#10;---&#10;{&#10;	id: vars.orgCDPayload.external_id,&#10;	orderReference : vars.orgCDPayload.order_reference,&#10;	statusCode: "200",&#10;	statusType: "Success",&#10;	statusMessage: "Ticket has successfully posted to E1" ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "") &#10;}]' doc:name="Success Payload" doc:id="3dddb158-bd64-464e-94ee-9889508c57f1" />
+		<logger level="INFO" doc:name="Logger" doc:id="631a2bfb-4e1f-4e41-8762-c4c2ea3c3414" message="++++ Ticket Flow Ended +++" />
+	</flow>
+</mule>

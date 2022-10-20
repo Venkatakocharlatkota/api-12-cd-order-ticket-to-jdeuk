@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:cloudhub="http://www.mulesoft.org/schema/mule/cloudhub" xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd
+http://www.mulesoft.org/schema/mule/cloudhub http://www.mulesoft.org/schema/mule/cloudhub/current/mule-cloudhub.xsd">
+	<flow name="sqsErrorHandlerFlow" doc:id="6360c0d0-f74d-4880-8f1c-185f5f5e70f2" >
+		<logger level="INFO" doc:name="Logger" doc:id="e78ee3b3-ab85-411d-8fd6-bc3ae13445f6" message="+++ In SQS Error Handler Flow +++"/>
+		<try doc:name="Try" doc:id="adc4e070-cf1c-49d3-8975-56177a8684d4" >
+			<choice doc:name="Choice" doc:id="ecb7132b-881b-417f-b392-9522d1794fcd" >
+				<when expression="#[isEmpty(vars.orgCDPayload.SQSMsgCreationTime)]">
+					<logger level="INFO" doc:name="Logger" doc:id="6788e1e5-152d-494b-a9e0-11202e98644d" message="+++ Inside SQS Time Addition Block +++"/>
+					<ee:transform doc:name="With SQS Time" doc:id="946daeef-9038-484b-8e78-dcb007547a30" >
+						<ee:message >
+							<ee:set-payload ><![CDATA[%dw 2.0
+output application/json skipNullOn = "everywhere"
+---
+vars.orgCDPayload ++ {"client_id": Mule::p('secure::client_id')} ++ {"buisObj": vars.buisobj} ++ {"SQSMsgCreationTime": now() as String { format : "yyyy-MM-dd'T'HH:mm:ss"} } ++ {"ErrorCode": vars.ErrorCode default "Tech_Error"}]]></ee:set-payload>
+						</ee:message>
+					</ee:transform>
+				</when>
+				<otherwise >
+					<logger level="INFO" doc:name="Logger" doc:id="9208c47d-2a52-4584-a45c-b4fcfea738cd" message="+++ Inside Default choice block +++"/>
+					<ee:transform doc:name="Without SQS Time" doc:id="b438ab47-cf09-4c8b-b39e-1f91744dc17d">
+				<ee:message>
+					<ee:set-payload><![CDATA[%dw 2.0
+output application/json skipNullOn = "everywhere"
+---
+vars.orgCDPayload ++ {"client_id": Mule::p('secure::client_id')} ++ {"buisObj": vars.buisobj} ++ {"ErrorCode": vars.ErrorCode default "Tech_Error"}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+				</otherwise>
+			</choice>
+			<logger level="INFO" doc:name="Logger" doc:id="f12aab54-057f-41ce-9e8d-21f542d9641f" message="+++ Error Payload with Headers for further processing ----------------#[payload]" />
+			<logger level="INFO" doc:name="Logger" doc:id="f36fce04-ab51-43b2-85e0-19d988319a52" message="+++Header Details :::   Buisness Object - #[vars.buisobj] , client id - #[payload.client_id] , SQS Message Creation Time - #[payload.SQSMsgCreationTime] , Error Code - #[payload.ErrorCode]+++" />
+			<ee:transform doc:name="Transform Message" doc:id="340942f6-d2f7-431a-8193-01500ac3f4d8" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+	delaySeconds: 0,
+	body: write(payload, "application/json"),
+	messageAttributes: {
+		"AccountId": {
+			"stringValue" : "000123456",
+			"dataType" : "String.AccountId"
+		} as Object {
+			class: "org.mule.extension.sqs.api.model.MessageAttributeValue"
+		},
+		"NumberId": {
+			"stringValue" : "230.000000000000000001",
+			"dataType" : "Number"
+		} as Object {
+			class : "org.mule.extension.sqs.api.model.MessageAttributeValue"
+		}
+	} as Object {
+		class: "java.util.HashMap"
+	}
+} as Object {
+	class: "org.mule.extension.sqs.api.model.Message"
+}]]></ee:set-payload>
+				</ee:message>
+			</ee:transform>
+			<logger level="INFO" doc:name="Logger" doc:id="220a0bc4-f46d-422e-b688-6d7cbb277af8" message="+++ Error message being pushed into queue +++"/>
+			<until-successful maxRetries="5" doc:name="Until Successful" doc:id="cc52260a-820e-4abc-a208-e30e41e7b670" millisBetweenRetries="10000" >
+				<sqs:send-message doc:name="Send message" doc:id="1b0347ae-e2f7-4168-ba1d-842150246d24" config-ref="Amazon_SQS_Configuration" queueUrl="${secure::SQSQueueURL}" />
+			</until-successful>
+			<logger level="INFO" doc:name="Logger" doc:id="7b58328f-ea80-46f6-a1e7-48d1c9ed1bf5" message="+++Error Message written into SQS successfully +++" />
+		</try>
+		<logger level="INFO" doc:name="Logger" doc:id="191ad365-4dbb-4c86-95c6-67df0557cb82" message="+++ Not Sending Error Information via Email as operational data will be reposted by Api-20 via SQS +++" />
+		<logger level="INFO" doc:name="Logger" doc:id="927f304f-ba27-429c-9cd8-6bebced60dc1" message="+++ The Operational Data is Successfully written into SQS queue and the flow will continue. +++" />
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="8ec58fbd-c701-46d9-8709-cdfecd8dcc0d" type="SQS:ACCESS_DENIED, SQS:CONNECTIVITY, SQS:INTERNAL_FAILURE, SQS:INVALID_CREDENTIALS, SQS:INVALID_DATA, SQS:MESSAGE_SIZE_THRESHOLD_OUT_OF_RANGE, SQS:OPT_IN_REQUIRED, SQS:PARAMETER_OUT_OF_RANGE, SQS:REQUEST_EXPIRED, SQS:RETRY_EXHAUSTED, SQS:S3_BUCKET_ACCESS_DENIED, SQS:S3_BUCKET_NOT_FOUND, SQS:SERVICE_UNAVAILABLE, SQS:THROTTLING_EXCEPTION" >
+				<logger level="INFO" doc:name="Logger" doc:id="d2899bd8-02cb-43c8-97d2-fbb917ba4e37" message="+++ Inside On error propogate :: SQS Connectivity Issue +++" />
+				<set-payload value='#[%dw 2.0&#10;output application/java&#10;---&#10;"Mule API Technical Error " ++ ": " ++ (error.description default " Mulesoft is unable to push the payload message into the queue because of SQS Connectivity Issues ") ++ " for " ++ (vars.buisobj default "") ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "")]' doc:name="Cloudhub Payload " doc:id="c8330393-01f7-4254-a237-872d11c427e0" />
+				<cloudhub:create-notification domain="${secure::cloudhub.domain}" doc:name="Create Notification" doc:id="cee29796-fae9-45a6-beef-bdf590b93dd5" config-ref="CloudHub_Config" priority="ERROR" />
+				<logger level="INFO" doc:name="Logger" doc:id="fa646fb4-237f-4235-937b-148f80774ca6" message="+++ Email Sent +++Cloudhub payload : #[payload] +++" />
+				<set-payload value='#[%dw 2.0&#10;import * from dw::core::Strings&#10;&#10;output application/json&#10;&#10;---&#10;&#10;{   "id": vars.orgCDPayload.external_id,&#10;	&#10;	"orderReference" : vars.orgCDPayload.order_reference,&#10;&#10;	"statusCode": "400",&#10;&#10;	"statusType": "Error",&#10;&#10;	"statusMessage": (error.description default " Mulesoft is unable to push the payload message into the queue because of SQS Connectivity Issues ") ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "") }]' doc:name="CD Response Payload " doc:id="8f98004d-7e65-402a-9202-5a9124a01ea7" />
+				<logger level="INFO" doc:name="Logger" doc:id="2e189c7c-d184-4c36-86b4-9761526d2b73" message="+++ The response to CD is :: #[payload] +++" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>

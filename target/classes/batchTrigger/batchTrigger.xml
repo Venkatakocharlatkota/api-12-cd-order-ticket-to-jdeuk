@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:jde="http://www.mulesoft.org/schema/mule/jde" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/jde http://www.mulesoft.org/schema/mule/jde/current/mule-jde.xsd">
+	<flow name="batchTriggerFlow" doc:id="efeee3c4-c2e3-47ba-bb09-e595f75657d1" >
+		<logger level="INFO" doc:name="Logger" doc:id="428d021c-56b6-4e33-b68f-ca9902e73721" message="+++ Inside Batch Trigger Flow +++" />
+		<ee:transform doc:name="Transform Message" doc:id="ca7e1387-3aee-4eb1-a34a-558f2a31eb9f" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+import * from dw::Runtime
+output application/java
+
+var local_arrival_time_var = if (isEmpty(vars.orgCDPayload.events.local_arrival_time)) (null) else (vars.orgCDPayload.events.local_arrival_time as DateTime)  
+
+//var local_typed_time_var = if (isEmpty(vars.orgCDPayload.events.local_typed_time)) (null) else (vars.orgCDPayload.events.local_typed_time as DateTime)  
+
+var start_load_time_var = if (vars.orgCDPayload.is_retro == true ) (vars.orgCDPayload.events.local_batch_start_time) else (vars.orgCDPayload.events.local_typed_time)
+---
+{
+
+mnCDSequenceNumber: if(isEmpty(vars.orgCDPayload.version)) fail("ERROR: Mandatory field: 'version' cannot be empty") else (vars.orgCDPayload.version) ,
+mnDocumentOrderInvoiceE: if(isEmpty(vars.orgCDPayload.order_reference)) fail("ERROR: Mandatory field: 'order reference' cannot be empty") else (vars.orgCDPayload.order_reference) ,
+mnLineNumber: if(isEmpty(vars.orgCDPayload.order_line_number)) fail("ERROR: Mandatory field: 'order line number' cannot be empty") else (vars.orgCDPayload.order_line_number) ,
+szCDTicketConvNumber: if(isEmpty(vars.orgCDPayload.ticket_reference)) fail("ERROR: Mandatory field: 'ticket reference' cannot be empty") else (vars.orgCDPayload.ticket_reference) ,
+szCDUniqueIdentifierTicket: if(isEmpty(vars.orgCDPayload.external_id)) fail("ERROR: Mandatory field: 'external id' cannot be empty") else (vars.orgCDPayload.external_id) ,
+//szCDOrderStatus: vars.orgCDPayload.order_status,
+mnUnitsTransactionQty: if(isEmpty(vars.orgCDPayload.quantity)) fail("ERROR: Mandatory field: 'quantity' cannot be empty") else (vars.orgCDPayload.quantity) ,
+szCategoryCodeCostCt010: if(isEmpty(vars.orgCDPayload.plant_external_id)) fail("ERROR: Mandatory field: 'plant external id' cannot be empty") else (vars.orgCDPayload.plant_external_id) ,
+szAIVehicleIdNew: if(isEmpty(vars.orgCDPayload.vehicle_external_id)) fail("ERROR: Mandatory field: 'vehicle external id' cannot be empty") else (vars.orgCDPayload.vehicle_external_id) ,
+mnAIUserReservedNumber1: vars.orgCDPayload.loading_point_name ,
+szCDRedirectedLoad: if(vars.orgCDPayload.is_redirect == true) ("Y") else ("N") ,
+szAIRetroTicket: if(vars.orgCDPayload.is_retro == true) ("Y") else ("N"),
+jdAIActualOnSiteDate: if (isEmpty(local_arrival_time_var)) (null) else (local_arrival_time_var as Date) ,
+mnAIActualOnSiteTime: if (isEmpty(local_arrival_time_var)) (null) else (local_arrival_time_var as String {format: "HHmm"}) ,
+szCDUniqueIdentifierHeader: vars.orgCDPayload.order_external_id,
+szCDUniqueIdentifierDetail: vars.orgCDPayload.order_item_external_id,
+mnStartLoadTime: if (isEmpty(start_load_time_var)) (null) else (start_load_time_var as DateTime as String {format: "HHmm"}) ,
+jdStartLoadDate: if (isEmpty(start_load_time_var)) (null) else (start_load_time_var as DateTime as Date) 
+}]]></ee:set-payload>
+			</ee:message>
+			<ee:variables >
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="1ffb82de-1e76-4f97-a1ef-408fa0fec235" message="+++ After Transformation of CD Batch Trigger payload in Java - #[payload] +++" />
+		<jde:call-bsfn bsfnName="${secure::batchBsfnName}" doc:name="Batch Trigger" doc:id="7dd20345-460a-4d4a-872b-53f4bab4c010" config-ref="JDE_Config" target="JDEResponse" >
+			<reconnect frequency="10000" count="5" />
+		</jde:call-bsfn>
+		<logger level="INFO" doc:name="Printing orignal JDE response from Bsfn" doc:id="9d99aab3-8e9b-438a-bd1f-46c586d3b6ea" message="+++ The response by BSFN for Batch Trigger is :: #[vars.JDEResponse] and type is : #[typeOf(vars.JDEResponse)] and mime type is : #[(vars.JDEResponse).^mimeType] and media type is :: #[(vars.JDEResponse).^mediaType] and error code is : #[vars.JDEResponse.szCDMsgResponseCode_56CDMRS] and error desc is : #[vars.JDEResponse.szCDMsgResponseDesc_56CDMRD] +++" />
+		<logger level="INFO" doc:name="Logger" doc:id="443cc05d-d0df-4fc6-863e-4a575c0ff3fe" message="+++The Batch Trigger BSFN error code is : #[vars.JDEResponse.szCDMsgResponseCode_56CDMRS] and BSFN error desc is : #[vars.JDEResponse.szCDMsgResponseDesc_56CDMRD] +++"/>
+		<choice doc:name="Choice" doc:id="32c402eb-c466-4017-b01c-cd8a2c2be23a" >
+			<when expression='#[trim(vars.JDEResponse.szCDMsgResponseCode_56CDMRS) == ""]' >
+				<logger level="INFO" doc:name="Logger" doc:id="b5b48fc3-99ae-4b03-9f65-df0bd0d755d6" message="+++ Successfully posted Batch Trigger to E1 +++" />
+			</when>
+			<when expression="#[vars.JDEResponse.szCDMsgResponseCode_56CDMRS == 'ONF']">
+				<logger level="INFO" doc:name="Logger" doc:id="64ddd8a4-4aa7-46fe-9649-1d6c8e18d656" message="++++ Retrying as ONF (Order Not found) Error received +++"/>
+				<raise-error doc:name="Raise error" doc:id="23cbdf37-a765-4a80-9d75-0539e2dcb6a7" type="CUSTOM:E1_ORDER_NOT_FOUND_ERROR" description="Order Not Found"/>
+			</when>
+			<when expression="#[vars.JDEResponse.szCDMsgResponseCode_56CDMRS == 'QTY']">
+				<logger level="INFO" doc:name="Logger" doc:id="7e442a7f-1963-478e-af55-fa0039b45747" message="++++ Retrying as QTY (Insufficient quantity) Error received +++"/>
+				<raise-error doc:name="Raise error" doc:id="06d094b7-cec3-4c92-a6fc-13e4aeac9e46" type="CUSTOM:E1_INSUFFICIENT_QUANTITY_ERROR" description="Insufficient quantity error"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="210b65b4-4215-45bb-a7c8-26bf94595707" message="+++ Default Error Segment +++" />
+				<raise-error doc:name="Raise error" doc:id="dc394aca-aa33-4cc6-bba1-e3ea766e8bbd" type="CUSTOM:E1_ERROR" description="E1 has thrown error" />
+			</otherwise>
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="44a9ff20-972d-4ad5-897d-1a2ab95531b4" message="+++ Batch Trigger Flow Ended +++"/>
+	</flow>
+</mule>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:os="http://www.mulesoft.org/schema/mule/os"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="cancelAllItemsFlow" doc:id="cdbfa78f-4e6a-4ec6-9b80-9fff205993f6" >
+		<logger level="INFO" doc:name="Logger" doc:id="b2676c78-2c84-40ca-885d-80c21f045371" message="++++ Inside Cancel All Items Flow i.e. No item is present in order. ++++"/>
+		<ee:transform doc:name="Transform Message" doc:id="52e129e8-7d85-419e-835d-13e66d612b26" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="retrivedItems" ><![CDATA[[]]]></ee:set-variable>
+				<ee:set-variable variableName="orderitems_payload" ><![CDATA[[]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="For Each" doc:id="deaaa462-505f-4537-ad3b-6bfaa8b23a87" collection="#[vars.canlineitems]" >
+			<until-successful maxRetries="5" doc:name="Until Successful" doc:id="4ddccd6b-c121-4253-80b3-77602abcdfd6" millisBetweenRetries="5000">
+				<os:retrieve doc:id="dda23e5e-03a3-48f0-9007-f5b506a2ee09" key='#[vars.orgCDPayload.external_id ++ "_" ++ vars.canlineitems[vars.counter - 1]]' objectStore="${secure::object_store_name}" doc:name="Retrieve">
+				<os:default-value><![CDATA[#[{}]]]></os:default-value>
+			</os:retrieve>
+			</until-successful>
+			<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;vars.retrivedItems + payload.order_line_number]" doc:name="retrived Items" doc:id="a310b980-b002-4258-8d89-bddc7a24064c" variableName="retrivedItems" />
+			<set-variable value="#[%dw 2.0&#10;output application/json&#10;---&#10;(vars.orderitems_payload + payload) filter $ != {}]" doc:name="order items payload" doc:id="a3c1449d-61a2-49df-aabb-341ccea4b88b" variableName="orderitems_payload" />
+		</foreach>
+		<logger level="INFO" doc:name="Logger" doc:id="2339b9b5-3f3a-4afb-a058-59cd2a781b6a" message="+++ The deleted retrived items are : #[vars.retrivedItems] and order items payload : #[vars.orderitems_payload]++++" />
+		<set-variable value="#[vars.canlineitems reduce (item, acc = []) -&gt; if ((vars.retrivedItems contains item)) acc + item else acc]" doc:name="deleted line items" doc:id="96c19af7-a36d-4aba-8aff-1aeec3a84a58" variableName="dellineitems" />
+		<set-variable value="#[sizeOf(vars.dellineitems)]" doc:name="deleted line item count" doc:id="9ef8411c-2485-4908-9182-e670b2a56402" variableName="delcount" />
+		<logger level="INFO" doc:name="Logger" doc:id="47529181-48e7-45e6-a081-82432635a5c6" message="++++ The deleted line items are : #[vars.dellineitems] and the size of deleted line item array is : #[vars.delcount] +++" />
+		<foreach doc:name="For Each" doc:id="db37d6fa-cf71-45ea-a9f6-1166aa5491a7" collection="#[vars.dellineitems]" >
+			<ee:transform doc:name="Transform Message" doc:id="fee5ba27-bf0a-4722-a816-98ffde04a0c9" >
+				<ee:message >
+					<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.orderitems_payload[vars.counter - 1]]]></ee:set-payload>
+				</ee:message>
+				<ee:variables >
+					<ee:set-variable variableName="item_status" ><![CDATA["cancelled"]]></ee:set-variable>
+					<ee:set-variable variableName="lastItemFlag" ><![CDATA[%dw 2.0
+output application/json
+---
+if (vars.counter == vars.delcount) ("Y") else ("N")]]></ee:set-variable>
+				</ee:variables>
+			</ee:transform>
+			<logger level="INFO" doc:name="Logger" doc:id="3d404761-3c5a-4548-bd14-d2799ff24bbc" message="++++ Value of updated status: #[vars.item_status] and value of last item flag is : #[vars.lastItemFlag] ++++" />
+			<flow-ref doc:name="common order submission flow" doc:id="a50238f1-9495-4c69-9399-8aa2dd11db2e" name="commonOrderSubmissionFlow" />
+			<until-successful maxRetries="5" doc:name="Until Successful" doc:id="b78c4146-2a85-486d-99bb-8422496d6e43" millisBetweenRetries="5000">
+				<os:remove doc:id="0444b0aa-aa34-4785-8421-0b89b3d67dbc" key='#[vars.orgCDPayload.external_id ++ "_" ++ vars.dellineitems[vars.counter - 1]]' objectStore="${secure::object_store_name}" doc:name="Remove" />
+			</until-successful>
+			<logger level="INFO" doc:name="Logger" doc:id="149b4628-4eed-48cc-94bf-d08c99ffa9c8" message="++++ Items removed from Bsfn +++" />
+		</foreach>
+	</flow>
+</mule>

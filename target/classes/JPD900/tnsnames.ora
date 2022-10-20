@@ -1,0 +1,110 @@
+# Please edit this file to add the necessary oracle database
+# E1LOCAL is required (Local Oracle Database)
+# DO NOT DELETE E1LOCAL entry
+
+ORCLSYS =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 10.39.100.199)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = ORCLSYS.aggindprodsubne.aggindprodvcn.oraclevcn.com)
+    )
+  )
+
+ORCLPROD =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 10.39.100.22)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = dta.aggindprodsubne.aggindprodvcn.oraclevcn.com)
+    )
+  )
+
+ORCLDTA1=(DESCRIPTION=(SDU=65535)(SEND_BUF_SIZE=10485760)(RECV_BUF_SIZE=10485760)(ADDRESS=(PROTOCOL=TCP)(HOST=10.39.100.21)(PORT=1521))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=orcldta1.aggindprodsubne.aggindprodvcn.oraclevcn.com)(UR=A)))
+ORCLDTA2=(DESCRIPTION=(SDU=65535)(SEND_BUF_SIZE=10485760)(RECV_BUF_SIZE=10485760)(ADDRESS=(PROTOCOL=TCP)(HOST=10.39.100.21)(PORT=1521))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=orcldta2.aggindprodsubne.aggindprodvcn.oraclevcn.com)(UR=A)))
+ORCLDTA3=(DESCRIPTION=(SDU=65535)(SEND_BUF_SIZE=10485760)(RECV_BUF_SIZE=10485760)(ADDRESS=(PROTOCOL=TCP)(HOST=10.39.100.21)(PORT=1521))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=orcldta3.aggindprodsubne.aggindprodvcn.oraclevcn.com)(UR=A)))
+ORCLDTA4=(DESCRIPTION=(SDU=65535)(SEND_BUF_SIZE=10485760)(RECV_BUF_SIZE=10485760)(ADDRESS=(PROTOCOL=TCP)(HOST=10.39.100.21)(PORT=1521))(CONNECT_DATA=(SERVER=DEDICATED)(SERVICE_NAME=orcldta4.aggindprodsubne.aggindprodvcn.oraclevcn.com)(UR=A)))
+
+
+ORCLTEST =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 10.39.100.21) (PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = orcltest.aggindprodsubne.aggindprodvcn.oraclevcn.com)
+    )
+  )
+
+
+ORCLUAT =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)  (HOST = dbut.AIjde.local)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = py.aggindprodsubne.aggindprodvcn.oraclevcn.com)
+    )
+  )
+
+
+ORCLPDUAT =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)  (HOST = dbut.AIjde.local)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = dta.aggindprodsubne.aggindprodvcn.oraclevcn.com)
+    )
+  )
+
+ORCLPDST1 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)  (HOST = dbst1.AIjde.local)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = dta.aggindprodsubne.aggindprodvcn.oraclevcn.com)
+    )
+  )
+
+
+ORCLPDST =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)  (HOST = dbst.AIjde.local)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = dta.aggindprodsubne.aggindprodvcn.oraclevcn.com)
+    )
+  )
+
+
+E1Local =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 127.0.0.1)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = E1Local)
+    )
+  )
+
+ORACLR_CONNECTION_DATA =
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = IPC)(KEY = EXTPROC1521))
+    )
+    (CONNECT_DATA =
+      (SID = CLRExtProc)
+      (PRESENTATION = RO)
+    )
+  )
+
+
+EXTPROC_CONNECTION_DATA =
+  (DESCRIPTION =
+    (ADDRESS_LIST =
+      (ADDRESS = (PROTOCOL = IPC)(KEY = EXTPROC0))
+    )
+    (CONNECT_DATA =
+      (SID = PLSExtProc)
+      (PRESENTATION = RO)
+    )
+  )
+
+

@@ -1,0 +1,248 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:cloudhub="http://www.mulesoft.org/schema/mule/cloudhub" xmlns:spring="http://www.mulesoft.org/schema/mule/spring" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:jde="http://www.mulesoft.org/schema/mule/jde" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd 
+http://www.mulesoft.org/schema/mule/jde http://www.mulesoft.org/schema/mule/jde/current/mule-jde.xsd
+http://www.mulesoft.org/schema/mule/spring http://www.mulesoft.org/schema/mule/spring/current/mule-spring.xsd
+http://www.mulesoft.org/schema/mule/cloudhub http://www.mulesoft.org/schema/mule/cloudhub/current/mule-cloudhub.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+    <flow name="api-12-cd-order-ticket-to-jdeuk-main">				
+		<http:listener doc:name="Listener" doc:id="3636787a-575e-450b-9adc-ec40b6c4d599" config-ref="api-12-cd-order-ticket-to-jdeuk-httpListenerConfig" path="/api/*" >
+			<http:response statusCode="#[vars.httpStatus default 200]" >
+				<http:headers ><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+			</http:response>
+			<http:error-response statusCode="#[payload.statusCode default 400]" reasonPhrase='#[payload.statusMessage default ""]' >
+				<http:body ><![CDATA[#[payload]]]></http:body>
+				<http:headers ><![CDATA[#[vars.outboundHeaders default {}]]]></http:headers>
+			</http:error-response>
+		</http:listener>
+		<http:basic-security-filter doc:name="Basic security filter" doc:id="a191600a-db45-4f4e-ae5b-306ab32d5a7a" realm="MULE"/>
+		<spring:authorization-filter doc:name="Authorization filter" doc:id="ad9b03f1-d863-45c0-8532-57b144a315e9" requiredAuthorities="ROLE_ADMIN"/>
+		<try doc:name="Try" doc:id="928bd533-f31f-4651-b7be-05fc62239b1c">
+			<set-variable value="#[message.attributes.headers.client_id]" doc:name="Set Variable" doc:id="9b272c90-0aae-4698-9a5d-40f8ceff9133" variableName="client_id" />
+			<validation:is-true doc:id="41839ab0-dc0c-4304-94fb-74dd8907dd39" expression="#[vars.client_id == Mule::p('secure::client_id')]" doc:name="Is true" />
+			<error-handler>
+				<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="90dda042-98a9-4feb-bbc6-654a48c987b1">
+					<raise-error doc:name="Raise error" doc:id="90fb254e-548a-475d-abdd-6cd039b8e54a" type="INVALID : CLIENT_ID" description="The Client ID is either NULL or NOT VALID. Please check with the Mulesoft team." />
+				</on-error-propagate>
+			</error-handler>
+		</try>
+		<logger level="INFO" doc:name="Logger" doc:id="01cd1e34-ae1f-4527-bfbc-a40070dfd4ad" message="++++++++++     Api-12 Flow Started     ++++++++++" />
+		<ee:transform doc:name="Transform Message" doc:id="cb9d9530-adf7-4638-b50e-58dd58b3fae6" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="orgCDPayload" ><![CDATA[payload]]></ee:set-variable>
+				<ee:set-variable variableName="requestIdentifier" ><![CDATA[message.attributes.headers.'X-Request-Identifier']]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<apikit:router config-ref="api-12-cd-order-ticket-to-jdeuk-config"/>
+		<logger level="INFO" doc:name="Logger" doc:id="8bfdde0f-5ba8-48e8-851b-9dd69dd5ac1a" message="++++++++++     Api-12 Flow Ended     ++++++++++ +++ The response to CD is : #[payload] +++" />
+		<error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="5eeaf74b-a3d9-44a1-98a9-459ef964cd8c" type="EXPRESSION">
+				<logger level="INFO" doc:name="Logger" doc:id="677ca510-7b7b-4cd0-846e-6dd82d919151" message="++++ Inside Error Propagate Segment - Expression Issue  ++++" />
+				<logger level="INFO" doc:name="Logger" doc:id="2dde1331-6c98-4acc-bd01-d4f913ce4424" message="+++ Here is the Erroneous data - #[vars.orgCDPayload] +++" />
+				<set-variable value='#[%dw 2.0&#10;&#10;import * from dw::core::Strings&#10;&#10;output application/json&#10;&#10;---&#10;if (trim(substringAfter(substringBefore(error.description,"50| fun fail"),"org.mule.weave.v2.exception.UserException:")) == "" ) ("Unexpected error occurred in Mule/E1 UK API!") else (trim(substringAfter(substringBefore(error.description,"50| fun fail"),"org.mule.weave.v2.exception.UserException:")))]' doc:name="errors" doc:id="e6f6d07c-fe21-49c1-8dd1-85778546b229" variableName="errors"/>
+				<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;"VALUE_MISSING"]' doc:name="errorCode" doc:id="35a3c609-9480-4c28-aa79-a5a63f4c5b47" variableName="errorCode"/>
+				<flow-ref doc:name="Error Report" doc:id="515d4c8c-0862-4fc3-b12f-9b70f21ce956" name="errorReportFlow" />
+				<set-payload value='#[%dw 2.0&#10;&#10;import * from dw::core::Strings&#10;&#10;output application/json&#10;&#10;---&#10;&#10;{   "id": vars.orgCDPayload.external_id,&#10;	&#10;	"orderReference" : vars.orgCDPayload.order_reference,&#10;&#10;	"statusCode": "422",&#10;&#10;	"statusType": "Error",&#10;&#10;	//"statusMessage": substring(error.description, 44, 130)&#10;	&#10;	"statusMessage": (vars.errors default "") ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "")&#10;	 }]' doc:name="CD Response Payload" doc:id="87c554a1-d4e8-462f-931e-cf7307310a73" />
+				<logger level="INFO" doc:name="Logger" doc:id="8faa00bf-b98a-460e-9947-5d39dc50bc41" message="+++++  The response to CD is: #[payload]  +++++" />
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="b81e0701-20af-4607-957a-68890cc490b8" type="JDE:CONNECTIVITY" >
+				<logger level="INFO" doc:name="Logger" doc:id="621aad49-076e-4c72-b5d6-e1050ff79cc3" message="+++ In Error propogate of JDE E1 - E1 Connectivity +++" />
+				<flow-ref doc:name="SQS " doc:id="6c769186-b662-4f12-a6ae-8885fdacc933" name="sqsErrorHandlerFlow"/>
+				<set-payload value='#[%dw 2.0&#10;&#10;&#10;&#10;output application/json&#10;&#10;---&#10;&#10;{   "id": vars.orgCDPayload.external_id,&#10;	&#10;	"orderReference" : vars.orgCDPayload.order_reference,&#10;&#10;	"statusCode": "200",&#10;&#10;	"statusType": "Success",&#10;&#10;	"statusMessage": "Mulesoft is retrying using autoprocessing mechanism" ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "") }]' doc:name="CD Response Payload" doc:id="661d7310-07ae-457e-90e1-eff1d454a184" />
+				<logger level="INFO" doc:name="Logger" doc:id="f13f134e-8791-4e4a-a20e-cdffb8264017" message="+++++  The response to CD is: #[payload]  +++++"/>
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="7c004e1d-12ed-4fa1-9af5-edf2660efcab" type="JDE:ERROR_CALLING_BSFN" >
+				<logger level="INFO" doc:name="Logger" doc:id="be822098-e951-48e3-80ef-2718c7e156bb" message="+++ In Error propogate of JDE E1 - E1 Error Calling BSFN +++" />
+				<flow-ref doc:name="SQS" doc:id="b8758491-92fd-4f39-b6db-d9888bf2ad9f" name="sqsErrorHandlerFlow"/>
+				<set-payload value='#[%dw 2.0&#10;&#10;&#10;&#10;output application/json&#10;&#10;---&#10;&#10;{   "id": vars.orgCDPayload.external_id,&#10;	&#10;	"orderReference" : vars.orgCDPayload.order_reference,&#10;&#10;	"statusCode": "200",&#10;&#10;	"statusType": "Success",&#10;&#10;	"statusMessage": "Mulesoft is retrying using autoprocessing mechanism" ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "") }]' doc:name="CD Response Payload" doc:id="3cce571e-fc60-4230-bc07-d2d136397c5b" />
+				<logger level="INFO" doc:name="Logger" doc:id="968942df-f7a0-45bf-93d6-5a62e8e2241e" message="+++++  The response to CD is: #[payload]  +++++"/>
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="6f27eb66-bdba-4c13-99f9-54bdb0c6f486" type="JDE:RETRY_EXHAUSTED">
+				<logger level="INFO" doc:name="Logger" doc:id="d73c1a57-4eda-4662-8977-9080d13c61db" message="+++ In Error propogate of JDE E1 - Retry Exhausted Block +++"/>
+				<flow-ref doc:name="SQS" doc:id="a9b10b09-a344-4c74-b572-ec5e204e1eff" name="sqsErrorHandlerFlow"/>
+				<set-payload value='#[%dw 2.0&#10;&#10;&#10;&#10;output application/json&#10;&#10;---&#10;&#10;{   "id": vars.orgCDPayload.external_id,&#10;	&#10;	"orderReference" : vars.orgCDPayload.order_reference,&#10;&#10;	"statusCode": "200",&#10;&#10;	"statusType": "Success",&#10;&#10;	"statusMessage": "Mulesoft is retrying using autoprocessing mechanism" ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "") }]' doc:name="CD Response Payload" doc:id="49bf0713-7cf8-456c-b7ed-2f49b55d87c5" />
+				<logger level="INFO" doc:name="Logger" doc:id="d290deb3-1ff6-40b4-b825-1ad6ca6b1247" message="+++++  The response to CD is: #[payload]  +++++" />
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="c4a75110-9906-4d9c-bb81-628a94e6f0e9" type="CUSTOM:E1_RESERVATION_ERROR, CUSTOM:E1_ORDER_NOT_FOUND_ERROR, CUSTOM:E1_INSUFFICIENT_QUANTITY_ERROR">
+				<logger level="INFO" doc:name="Logger" doc:id="96d7db5f-efa4-4706-bf11-4594f17674c8" message="++++ Inside On Error Propogate -- 'RES' or 'ONF' or 'QTY'  Error From Bsfn --  Error Block++++" />
+				<set-variable value="#[vars.JDEResponse.szCDMsgResponseCode_56CDMRS]" doc:name="ErrorCode" doc:id="dd09a3c6-c045-4347-beb3-ecd7cc7c8452" variableName="ErrorCode"/>
+				<flow-ref doc:name="SQS" doc:id="d3a0ddb5-f627-410e-8489-5a597248af2a" name="sqsErrorHandlerFlow" />
+				<set-payload value='#[%dw 2.0&#10;&#10;&#10;&#10;output application/json&#10;&#10;---&#10;&#10;{   "id": vars.orgCDPayload.external_id,&#10;	&#10;	"orderReference" : vars.orgCDPayload.order_reference,&#10;&#10;	"statusCode": "200",&#10;&#10;	"statusType": "Success",&#10;&#10;	"statusMessage": "Mulesoft is retrying using autoprocessing mechanism" ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "") }]' doc:name="CD Response Payload" doc:id="d909a7f6-a0e1-4628-9e91-dfc434e618a9" />
+				<logger level="INFO" doc:name="Logger" doc:id="375207a4-b938-4b1e-bb2e-4833805759c6" message="+++++  The response to CD is: #[payload]  +++++" />
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="3a8c9371-37e3-4c2c-8fd8-3d322355cd26" type="CUSTOM:E1_ERROR">
+				<logger level="INFO" doc:name="Logger" doc:id="f399a9c6-7ccb-422c-a714-2387481e0738" message="+++ Inside On Error Propogate - JDE Response Block +++" />
+				<logger level="INFO" doc:name="Logger" doc:id="c72c823a-527d-47b6-a058-398791c58924" message="+++ Here is the Erroneous data - #[vars.orgCDPayload] +++" />
+				<choice doc:name="Choice" doc:id="a5931ba9-357c-447e-9420-c5f9b262561c">
+					<when expression="#[(vars.JDEResponse.szCDMsgResponseCode_56CDMRS == 'CNF') or (vars.JDEResponse.szCDMsgResponseCode_56CDMRS == 'DAT')]">
+						<logger level="INFO" doc:name="Logger" doc:id="23a23833-3557-4fdb-a03b-ac1a931ddc2b" message="+++ In CNF and DAT choice Block +++" />
+						<flow-ref doc:name="Error Report" doc:id="796ba3af-657a-4520-9ed9-9b81ae15d085" name="errorReportFlow"/>
+						<set-payload value='#[%dw 2.0&#10;output application/json&#10;&#10;---&#10;{&#10;	"id": vars.orgCDPayload.external_id,&#10;	"orderReference" : vars.orgCDPayload.order_reference,&#10;	"statusCode": "422",&#10;	"statusType": "Error",&#10;	"statusMessage": (vars.JDEResponse.szCDMsgResponseDesc_56CDMRD default "") ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "")&#10;}]' doc:name="CD Response Payload" doc:id="efa290a3-3aa1-4091-b378-4e0c799c7a44" />
+						<logger level="INFO" doc:name="Logger" doc:id="5ba6bd66-c013-43d9-a0db-df0d8698488b" message="+++++  The response to CD is: #[payload]  +++++" />
+					</when>
+					<when expression="#[(vars.JDEResponse.szCDMsgResponseCode_56CDMRS == 'IER') or (vars.JDEResponse.szCDMsgResponseCode_56CDMRS == 'DUS')]">
+						<logger level="INFO" doc:name="Logger" doc:id="0907c01f-47db-4e65-a782-fbf4e41755ab" message="+++ In IER and DUS choice Block +++ " />
+						<flow-ref doc:name="Error Report" doc:id="f6fe950e-c193-43d1-9651-2cea549a9fd8" name="errorReportFlow"/>
+						<set-payload value='#[%dw 2.0&#10;output application/json&#10;&#10;---&#10;{&#10;	"id": vars.orgCDPayload.external_id,&#10;	"orderReference" : vars.orgCDPayload.order_reference,&#10;	"statusCode": "422",&#10;	"statusType": "Error",&#10;	"statusMessage": (vars.JDEResponse.szCDMsgResponseDesc_56CDMRD default "") ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "")&#10;}]' doc:name="CD Response Payload" doc:id="2be234ae-50f6-402e-af46-417871d42ace" />
+						<logger level="INFO" doc:name="Logger" doc:id="9a9ac5c7-9e8e-45c8-90aa-a74bae9e3311" message="+++++  The response to CD is: #[payload]  +++++" />
+					</when>
+					<when expression='#[(!isEmpty(vars.JDEResponse.szCDMsgResponseCode_56CDMRS)) or (vars.JDEResponse.cCDRecordProcessed == "E")]'>
+						<logger level="INFO" doc:name="Logger" doc:id="d8d5afc2-b5ea-4068-ad0d-8d19d2973b4e" message="++++ Inside unexpected error code block . Unexpected error is being received from BSFN :: #[payload.'szCDMsgResponseCode_56CDMRS'[0]]++++" />
+						<flow-ref doc:name="Error Report" doc:id="82aae523-10c2-4071-978b-e52251fc91e2" name="errorReportFlow"/>
+						<set-payload value='#[%dw 2.0&#10;output application/json&#10;&#10;---&#10;{&#10;	"id": vars.orgCDPayload.external_id,&#10;	"orderReference" : vars.orgCDPayload.order_reference,&#10;	"statusCode": "422",&#10;	"statusType": "Error",&#10;	"statusMessage": (if (isEmpty(vars.JDEResponse.szCDMsgResponseDesc_56CDMRD)) (" Error Description has not been sent by E1. Please contact E1") else (vars.JDEResponse.szCDMsgResponseDesc_56CDMRD default "" ) ) ++ " for error code: " ++ (if (isEmpty(vars.JDEResponse.szCDMsgResponseCode_56CDMRS)) (" Error Code has not been sent by E1. Please contact E1 ") else (vars.JDEResponse.szCDMsgResponseCode_56CDMRS default "" ) ) ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "")&#10;}]' doc:name="CD Response Payload" doc:id="5480beff-9987-4f63-9133-fe7ed773d74f" />
+						<logger level="INFO" doc:name="Logger" doc:id="81dda09f-adf4-4c96-9d03-cc961046fb91" message="+++++  The response to CD is: #[payload]  +++++" />
+					</when>
+					<otherwise>
+						<logger level="INFO" doc:name="Logger" doc:id="f7970e31-6f66-4986-9896-0f64900d2f6f" message="+++ In default choice Block  +++" />
+						<set-variable value='#[%dw 2.0&#10;&#10;import * from dw::core::Strings&#10;&#10;output application/json&#10;&#10;---&#10;error.description default "Unexpected error occurred in Mule/E1 UK API! Contact Mulesoft team."]' doc:name="errors" doc:id="b215032b-1e65-4797-8f91-d4908c7f5ca5" variableName="errors" />
+						<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;"UNKNOWN_ERROR"]' doc:name="errorCode" doc:id="8bbc5ea8-59eb-4934-b265-0668e69d890e" variableName="errorCode" />
+						<flow-ref doc:name="error report" doc:id="8b5610ac-6282-4f3b-a18a-2261feba0a51" name="errorReportFlow" />
+						<set-payload value='#[%dw 2.0&#10;output application/json&#10;&#10;---&#10;{&#10;	"id": vars.orgCDPayload.external_id,&#10;	"orderReference" : vars.orgCDPayload.order_reference,&#10;	"statusCode": "422",&#10;	"statusType": "Error",&#10;	"statusMessage": (vars.errors default "Error Description is not sent by E1. Please contact E1") ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "")&#10;}]' doc:name="CD Response Payload" doc:id="9dd1a1e1-05da-4169-aed8-a0852698b375" />
+						<logger level="INFO" doc:name="Logger" doc:id="9cff7847-187f-4486-818e-e52b7dd25dfb" message="+++++  The response to CD is: #[payload]  +++++" />
+					</otherwise>
+				</choice>
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="b67e2f9c-f94b-4812-8156-287be66561cc" when='#[error.description contains("The Client ID is either NULL or NOT VALID. Please check with the Mulesoft team.")]'>
+				<logger level="INFO" doc:name="Logger" doc:id="88e1486f-3f91-4c3d-bb83-6ed3e7c68923" message="+++ On Error Propagate Section for Invalid Client Id error+++" />
+				<logger level="INFO" doc:name="Logger" doc:id="2b1e56dd-f9af-4db0-8b26-09f983e7bda0" message="+++ Here is the Erroneous data - #[vars.orgCDPayload] +++" />
+				<set-payload value='#[%dw 2.0&#10;output application/json&#10;&#10;---&#10;{&#10;	id: vars.orgCDPayload.external_id,&#10;	orderReference : vars.orgCDPayload.order_reference,&#10;	statusCode: "400",&#10;	statusType: "Error",&#10;	statusMessage: "Could not connect with API-12 because the Client ID is either NULL or NOT VALID. Please check with the Mulesoft team."&#10;}]' doc:name="CD Response Payload" doc:id="6d340ccd-8a33-45f5-8c78-2d390ad746e1" />
+				<logger level="INFO" doc:name="Logger" doc:id="7af09b07-c5f2-4280-a51d-ffca7b948fbb" message="+++++  The response to CD is: #[payload]  +++++" />
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="22485bf9-e5e2-44c9-9b7f-4c72b2d6ddbb" type="MULE:SOURCE_RESPONSE_SEND">
+				<logger level="INFO" doc:name="Logger" doc:id="f1c999b2-4d47-43f4-b44b-7e5569bb58dc" message="+++ Inside On error Propogate : Client Connection Closed Error. +++" />
+				<logger level="INFO" doc:name="Logger" doc:id="62e8b9cd-1f40-4d5f-81c8-bef25d28a38c" message="+++ Here is the data - #[vars.orgCDPayload] +++" />
+				<logger level="INFO" doc:name="Logger" doc:id="10d45ad5-786c-46ac-9d8d-33426902f366" message="++++ As the JDE BSFN connector took more than 5 minutes to process the data the client/requester's connection is closed. That is why the error &quot; MULE:SOURCE_RESPONSE_SEND &quot; is coming. But the request payload is processed successfully at E1 side as SOURCE_RESPONSE indicates that an error occurred in the source of a flow while processing a successful response.  ++++" />
+			</on-error-propagate>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="12ccc463-4976-453b-b866-2866baf6d276" type="ANY">
+				<logger level="INFO" doc:name="Logger" doc:id="1e1921d3-82f5-4777-a254-31dcbcb0a505" message="++++ Inside Error Propagate ANY Segment ++++" />
+				<logger level="INFO" doc:name="Logger" doc:id="9661017d-19fa-45ee-9aab-f224b57578c6" message="+++ Here is the Erroneous data - #[vars.orgCDPayload] +++" />
+				<set-variable value='#[%dw 2.0&#10;&#10;import * from dw::core::Strings&#10;&#10;output application/json&#10;&#10;---&#10;error.description default "Unexpected error occurred in Mule/E1 UK API! Contact Mulesoft team"]' doc:name="errors" doc:id="3b439fee-5252-45cc-a6da-66ed4d0c9695" variableName="errors" />
+				<set-variable value='#[%dw 2.0&#10;output application/java&#10;---&#10;"UNKNOWN_ERROR"]' doc:name="errorCode" doc:id="3077116b-6e1d-427e-af0c-ccb1a235407e" variableName="errorCode" />
+				<flow-ref doc:name="error report" doc:id="47a36ee4-e6b5-479d-a677-1a60f295f004" name="errorReportFlow" />
+				<set-payload value='#[%dw 2.0&#10;output application/java&#10;---&#10;"Mule API Technical Error " ++ ": " ++ (vars.errors default "") ++ " for " ++ (vars.buisobj default "") ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "")]' doc:name="Cloudhub Payload" doc:id="8dfbec11-c693-492f-a645-8b4739854534" />
+				<cloudhub:create-notification domain="${secure::cloudhub.domain}" doc:name="Create Notification" doc:id="7b51d65f-93d8-4ae4-a50a-f14dbb86f459" config-ref="CloudHub_Config" priority="ERROR">
+				</cloudhub:create-notification>
+				<logger level="INFO" doc:name="Logger" doc:id="84b16d90-6a22-4a35-986c-ce58f9e6c51e" message="+++ Email Sent +++ Cloudhub payload : #[payload] +++" />
+				<set-payload value='#[%dw 2.0&#10;import * from dw::core::Strings&#10;&#10;output application/json&#10;&#10;---&#10;&#10;{   "id": vars.orgCDPayload.external_id,&#10;	&#10;	"orderReference" : vars.orgCDPayload.order_reference,&#10;&#10;	"statusCode": "400",&#10;&#10;	"statusType": "Error",&#10;&#10;	"statusMessage": (vars.errors default "") ++ " for external id " ++ (vars.orgCDPayload.external_id default "") ++ "." ++ " Reference : Order Number : " ++ (vars.orgCDPayload.order_reference default "") ++ " Ticket number : " ++ (vars.orgCDPayload.ticket_reference default "") }]' doc:name="CD Response Payload" doc:id="e6e216a0-63ec-4473-8e99-304021255830" />
+				<logger level="INFO" doc:name="Logger" doc:id="06464524-b9a4-44d1-8dfd-16489cc4b4e7" message="+++++  The response to CD is: #[payload]  +++++" />
+			</on-error-propagate>
+        </error-handler>
+    </flow>
+    <!-- <flow name="api-12-cd-order-ticket-to-jdeuk-console">
+        <http:listener config-ref="api-12-cd-order-ticket-to-jdeuk-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="api-12-cd-order-ticket-to-jdeuk-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+-&#45;&#45;
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow> -->
+    <flow name="post:\order:application\json:api-12-cd-order-ticket-to-jdeuk-config">
+        <logger level="INFO" message="post:\order:application\json:api-12-cd-order-ticket-to-jdeuk-config" />
+		<logger level="INFO" doc:name="Logger" doc:id="dc3a6053-9cac-4e87-a816-1a11ba2c1378" message="+++++  Order Flow Started  +++++" />
+		<flow-ref doc:name="Flow Reference" doc:id="e48cb2ac-d2c4-4a4f-8758-a4cf6bb3e77e" name="orderFlow" />
+    </flow>
+    <flow name="post:\ticket:application\json:api-12-cd-order-ticket-to-jdeuk-config">
+        <logger level="INFO" message="post:\ticket:application\json:api-12-cd-order-ticket-to-jdeuk-config" />
+		<logger level="INFO" doc:name="Logger" doc:id="44db1568-bc50-4d7c-abc3-bd37cd2e5f9c" message="+++++  Ticket Flow Started  +++++" />
+		<flow-ref doc:name="Flow Reference" doc:id="44613240-1f8c-49f4-be1a-9c9967fec2d7" name="ticketFlow" />
+    </flow>
+</mule>

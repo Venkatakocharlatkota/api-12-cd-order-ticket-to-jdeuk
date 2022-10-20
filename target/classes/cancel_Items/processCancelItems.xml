@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:os="http://www.mulesoft.org/schema/mule/os" xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/os http://www.mulesoft.org/schema/mule/os/current/mule-os.xsd">
+	<flow name="processCancelItems" doc:id="b2503e50-ebd3-4cc5-88c2-0ccce946bff7" >
+		<logger level="INFO" doc:name="Logger" doc:id="531c64d7-d8be-459c-810f-f45815a9a793" message="+++ Inside process cancel items flow +++" />
+		<foreach doc:name="For Each" doc:id="7266dfb1-a53c-4abe-b079-c481054fd9f2" collection="#[vars.canlineitems]" >
+			<until-successful maxRetries="5" doc:name="Until Successful" doc:id="82318b6c-8524-4151-bf25-c1490da3c4b2" millisBetweenRetries="5000">
+				<os:retrieve doc:id="ca60f6f3-219a-4451-9de7-95aef07f9861" key='#[vars.orgCDPayload.external_id ++ "_" ++ vars.canlineitems[vars.counter - 1]]' objectStore="${secure::object_store_name}" target="cancelledItems" doc:name="Retrieve">
+				<os:default-value><![CDATA[#[{}]]]></os:default-value>
+			</os:retrieve>
+			</until-successful>
+			<choice doc:name="Choice" doc:id="e094a1ee-d441-4b0c-a39f-eebef1b59140" >
+				<when expression="#[vars.cancelledItems != {}]" >
+					<logger level="INFO" doc:name="Logger" doc:id="8ba085c8-a44f-48f3-9317-b4e7320b8c8b" message="#[vars.cancelledItems]" />
+					<set-variable value='#["cancelled"]' doc:name="Updating Item Status" doc:id="7153eea4-0250-4337-9265-ba3fd76f1d0a" variableName="item_status" />
+					<set-variable value='#["N"]' doc:name="lastItemFlag" doc:id="258f1927-60d4-4014-85f6-2d083f80f059" variableName="lastItemFlag" />
+					<logger level="INFO" doc:name="Logger" doc:id="24e4822a-ba20-4dd5-9edb-21209beab803" message="++ Value of updated status: #[vars.item_status] and value of last item flag is : #[vars.lastItemFlag] +++" />
+					<set-payload value="#[vars.cancelledItems]" doc:name="Set Payload" doc:id="50adfff6-5602-4b64-a387-827f12b58d75" />
+					<logger level="INFO" doc:name="Logger" doc:id="463df756-3f70-4980-9cba-8032edc1b706" message="++++Payload will be : #[payload] ++++" />
+					<flow-ref doc:name="common order submission flow" doc:id="723308fe-ac25-4c02-9bf4-fbf3b2c98df2" name="commonOrderSubmissionFlow" />
+					<until-successful maxRetries="5" doc:name="Until Successful" doc:id="b2d26e4b-f853-4c44-89b1-2ff11dbc35ba" millisBetweenRetries="5000">
+						<os:remove doc:id="6b0450ff-eae7-4c63-8f5e-a3791ba61b33" key='#[vars.orgCDPayload.external_id ++ "_" ++ vars.canlineitems[vars.counter - 1]]' objectStore="${secure::object_store_name}" doc:name="Remove" />
+					</until-successful>
+					<logger level="INFO" doc:name="Logger" doc:id="6a4478af-e99f-4c2c-b58f-d8adfd7b17e3" message="++++ Items removed from Bsfn +++" />
+				</when>
+				<otherwise >
+					<logger level="INFO" doc:name="Logger" doc:id="7e5b4f01-5877-40a0-9da6-6a29c59de601" message="+++ Ignoring because item is already deleted +++" />
+				</otherwise>
+			</choice>
+		</foreach>
+	</flow>
+</mule>

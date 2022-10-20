@@ -1,0 +1,13 @@
+https.port: "9099"
+
+sourceSystem : "JDE_UK"
+systemIdentifier : "UK"
+
+## Required for transformation of payment method
+CHEQUE: "2"
+CREDIT_CARD: "3"
+BACS: "4"
+CHAPS: "5"
+
+## Logic added for payment method
+payment_method: "CHEQUE,CREDIT_CARD,BACS,CHAPS"
